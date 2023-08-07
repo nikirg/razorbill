@@ -15,14 +15,19 @@ from razorbill.razorbill.deps import (
     init_deps
 )
 
+# GET /project/{project_id}/user/
+
+
 class Router(APIRouter):
     def __init__(
         self,
         crud: CRUD,
-        schema: Type[BaseModel] | None = None,
-        create_schema: Type[BaseModel] | None = None,
-        overwrite_schema: bool = False,
-        overwrite_create_schema: bool = False,
+        # schema: Type[BaseModel] | None = None,
+        # create_schema: Type[BaseModel] | None = None,
+        # update_schema: Type[BaseModel] | None = None,
+        # overwrite_schema: bool = False,
+        # overwrite_create_schema: bool = False,
+        # overwrite_update_schema: bool = False,
         items_per_query: int = 10,
         count_endpoint: bool | list[Callable] = True,
         get_all_endpoint: bool | list[Callable] = True,
@@ -37,11 +42,13 @@ class Router(APIRouter):
         dependencies: list[Depends] | None = None,
         **kwargs,
     ):
+        self.crud = crud
+          
         model_name = crud.slug
         fields_to_exclude = ["id", "_id"]
         
         if parent_crud is not None:
-            parent_item_tag, _, parent_item_path = build_path_elements(model_name)
+            parent_item_tag, _, parent_item_path = build_path_elements(parent_crud.data_model.name)
             parent_exists_dependency = build_exists_dependency(parent_crud, parent_item_tag)
             self._parent_id_dependency = build_last_parent_dependency(parent_item_tag)
             fields_to_exclude.append(parent_item_tag)
@@ -70,6 +77,7 @@ class Router(APIRouter):
         self.Schema = build_schema(crud.data_model, schema, overwrite_schema, fields_to_exclude)             
         self.CreateSchema = build_schema(crud.data_model, create_schema, overwrite_create_schema, fields_to_exclude)   
         
+        
         if count_endpoint:
             self._init_count_endpoint(count_endpoint)
 
@@ -94,7 +102,7 @@ class Router(APIRouter):
             tags=tags,
             **kwargs
         )
-
+          
             
     def _init_count_endpoint(self, deps: list[Callable] | bool):
         @self.get(
@@ -173,4 +181,11 @@ class Router(APIRouter):
             item_id: int = self._path_field,
         ):
             await self.crud.delete_one(item_id)
+    
+
+    
+
+    
+    
+    
     
