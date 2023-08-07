@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "razorbill"
+version = "0.1.0"
+description = ""
+authors = ["Nikita Irgashev <nik.irg@yandex.ru>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.98.0"
+sqlalchemy = "^2.0.17"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
