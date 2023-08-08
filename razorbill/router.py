@@ -2,12 +2,10 @@ from enum import Enum
 from typing import Callable, Type
 
 from fastapi import APIRouter, Path, HTTPException, Depends
-from pydantic import BaseModel
 
-
-from razorbill.razorbill.crud.base import CRUD
-from razorbill.razorbill.converter import build_schema
-from razorbill.razorbill.deps import (
+from razorbill.crud.base import CRUD
+from razorbill.converter import build_schema
+from razorbill.deps import (
     build_exists_dependency, 
     build_last_parent_dependency, 
     build_pagination_dependency,
@@ -36,14 +34,14 @@ class Router(APIRouter):
         update_one_endpoint: bool | list[Callable] = True,
         delete_one_endpoint: bool | list[Callable] = True,
         parent_crud: CRUD | None = None,
-        path_item_parameter: Path | None = None,
+        path_item_parameter: Type[Path] | None = None,
         prefix: str | None = None,
         tags: list[str | Enum] | None = None,
         dependencies: list[Depends] | None = None,
         **kwargs,
     ):
         self.crud = crud
-          
+
         model_name = crud.slug
         fields_to_exclude = ["id", "_id"]
         
@@ -74,10 +72,10 @@ class Router(APIRouter):
 
         self._pagination_dependency = build_pagination_dependency(items_per_query)
         
-        self.Schema = build_schema(crud.data_model, schema, overwrite_schema, fields_to_exclude)             
-        self.CreateSchema = build_schema(crud.data_model, create_schema, overwrite_create_schema, fields_to_exclude)   
+        self.Schema = build_schema(crud.data_model, crud.schema, crud.overwrite_schema, fields_to_exclude)
+        self.CreateSchema = build_schema(crud.data_model, crud.create_schema, crud.overwrite_create_schema, fields_to_exclude)
         
-        
+
         if count_endpoint:
             self._init_count_endpoint(count_endpoint)
 
@@ -102,7 +100,7 @@ class Router(APIRouter):
             tags=tags,
             **kwargs
         )
-          
+
             
     def _init_count_endpoint(self, deps: list[Callable] | bool):
         @self.get(
@@ -183,9 +181,9 @@ class Router(APIRouter):
             await self.crud.delete_one(item_id)
     
 
-    
 
-    
-    
-    
-    
+
+
+
+
+

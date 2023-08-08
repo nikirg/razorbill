@@ -1,7 +1,7 @@
-from typing import Callable, Type
+from typing import Callable
 
 from fastapi import HTTPException, Depends, Path, Request
-from razorbill.razorbill.crud.base import CRUD
+from razorbill.crud.base import CRUD
 
 
 def build_exists_dependency(

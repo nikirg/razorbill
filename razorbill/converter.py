@@ -4,7 +4,7 @@ from pydantic import BaseConfig, BaseModel, create_model
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm.properties import ColumnProperty
 
-from razorbill.razorbill.model import BaseDataModel
+from razorbill.model import BaseDataModel
 
 
 class OrmConfig(BaseConfig):

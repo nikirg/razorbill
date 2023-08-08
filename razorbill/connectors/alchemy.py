@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from .razorbill.model import AlchemyModel
-from .razorbill.connectors.base import BaseConnector
+from razorbill.model import AlchemyModel
+from razorbill.connectors.base import BaseConnector
 
 
 class AsyncSQLAlchemyConnectorException(Exception):
