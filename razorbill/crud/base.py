@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, validate_arguments
 from razorbill.connectors.base import BaseConnector
-
+from razorbill.utils import schema_factory
 
 class CRUD:
     def __init__(
@@ -15,10 +15,20 @@ class CRUD:
             overwrite_schema: bool = False,
             overwrite_create_schema: bool = False,
             overwrite_update_schema: bool = False,
+            pk: str | None = "id"
     ):
-        self.schema = schema
-        self.create_schema = create_schema
-        self.update_schema = update_schema
+        self.pk: str = pk
+        self.schema = schema if schema is not None else connector.schema
+        self.create_schema = self.create_schema = (
+            create_schema
+            if create_schema
+            else schema_factory(self.schema, pk_field_name=self.pk, name="Create")
+        )
+        self.update_schema = (
+            update_schema
+            if update_schema
+            else schema_factory(self.schema, pk_field_name=self.pk, name="Update")
+        )
         self.overwrite_schema = overwrite_schema
         self.overwrite_create_schema = overwrite_create_schema
         self.overwrite_update_schema = overwrite_update_schema
@@ -26,8 +36,10 @@ class CRUD:
 
         async def dummy(arg: Type[BaseModel] | str | int): return arg
 
+        async def update_dummy(arg_id: str | int, arg: Type[BaseModel] | str | int): return arg
+
         self._before_create_func = dummy
-        self._before_update_func = dummy
+        self._before_update_func = update_dummy
         self._before_delete_func = dummy
 
         self._after_create_func = dummy
@@ -70,33 +82,36 @@ class CRUD:
         self._after_delete_func = func
         return func
 
-    async def get_one(self, item_id: str | int):
-        return await self._connector.get_one(obj_id=item_id)
+    async def count(self, filters: dict[str, Any] = {}) -> int:
+        return await self._connector.count(filters=filters)
+
+    async def get_one(self, obj_id: str | int) -> BaseModel:
+        return await self._connector.get_one(obj_id=obj_id)
 
     async def get_many(self, skip: int, limit: int, filters: dict[str, Any] = {},
-                       sorting: dict[str, tuple[Any, str]] = {}):
+                       sorting: dict[str, tuple[Any, str]] = {}) -> list[BaseModel]:
         return await self._connector.get_many(skip=skip, limit=limit,
                                               filters=filters)  # TODO, sorting=sorting)
 
-    async def create(self, item: Type[BaseModel]):
-        _item = await self._before_create_func(item)
-        if _item is None:
-            _item=item
-        record = await self._connector.create_one(obj=_item.dict())
+    async def create(self, obj: Type[BaseModel]) -> BaseModel:
+        _obj = await self._before_create_func(obj)
+        if _obj is None:
+            _obj=obj
+        record = await self._connector.create_one(obj=_obj)
         record = await self._after_create_func(record)
         # TODO проверить, не делает ли повторную валидацию fastapi в роутере
-        return self.schema(**record)
+        return record
 
-    async def update(self, item_id: str | int, item: Type[BaseModel]):
-        _item = await self._before_update_func(item_id, item)
-        if _item is None:
-            _item = item
-        record = await self._connector.update_one(obj_id=item_id, obj=_item)
+    async def update(self, obj_id: str | int, obj: Type[BaseModel]) -> BaseModel:
+        _obj = await self._before_update_func(obj_id, obj)
+        if _obj is None:
+            _obj = obj
+        record = await self._connector.update_one(obj_id=obj_id, obj=_obj)
         return await self._after_update_func(record)
 
-    async def delete(self, item_id: str | int) -> Type[BaseModel]:
-        await self._before_delete_func(item_id)
-        record = await self._connector.delete_one(obj_id=item_id)
+    async def delete(self, obj_id: str | int) -> BaseModel:
+        await self._before_delete_func(obj_id)
+        record = await self._connector.delete_one(obj_id=obj_id)
         return await self._after_delete_func(record)
 
 #
