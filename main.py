@@ -1,13 +1,9 @@
-from pydantic import BaseModel, Field
 from fastapi import FastAPI
-from typing import Any, Type, Callable
-from typing import Any
-from pydantic import BaseModel, create_model
-from pydantic.fields import FieldInfo
-from datetime import datetime
-from razorbill.crud.base import CRUD
+from typing import Type
+from pydantic import BaseModel
+from razorbill.crud import CRUD
 from razorbill.router import Router
-from razorbill.connectors.memory import MemoryConnector
+from razorbill.connectors.memory import MemoryConnector, _inmemory_storage
 import asyncio
 
 app = FastAPI()
@@ -17,54 +13,69 @@ class UserSchema(BaseModel):
     id: int
     telegram_id: str
     telegram_username: str
+    project_id: int
+
+
+class ProjectSchema(BaseModel):
+    id: int
+    name: str
 
 
 class CreateUserSchema(BaseModel):
     telegram_id: str
     telegram_username: str
+    project_id: int
+
+
+class CreateProjectSchema(BaseModel):
+    name: str
 
 
 class UpdateUserSchema(BaseModel):
     telegram_id: str
     telegram_username: str
-
-
-connector = MemoryConnector(schema=UserSchema)
-crud = CRUD(
-    schema=UserSchema,
-    # pk = "telegram_id",
-    overwrite_create_schema=True,
-    connector=connector)
+    project_id: int
 
 
 # def build_api
 
 
 async def test_create(print_flag: bool = True):
-    @crud.before_create
+    @user_crud.before_create
     async def before_create_handler(obj: Type[BaseModel]) -> Type[BaseModel]:
         if print_flag:
-            print("before_create_handler")
+            print("user_crud before_create_handler")
         if obj.telegram_id == "1":
             obj.telegram_id = "2"
         return obj
 
-    @crud.after_create
+    @user_crud.after_create
     async def after_create_handler(obj: Type[BaseModel]) -> Type[BaseModel]:
         if print_flag:
-            print("after_create_handler")
+            print("user_crud after_create_handler")
         return obj
 
+
+    new_project = CreateProjectSchema(
+        name="test name"
+    )
+
+    project = await project_crud.create(new_project)
+    print(project)
     new_user_1 = CreateUserSchema(
         telegram_id="1",
-        telegram_username="test1"
+        telegram_username="test1",
+        project_id=project.id
     )
+    item1 = await user_crud.create(new_user_1)
+
     new_user_2 = CreateUserSchema(
         telegram_id="2",
-        telegram_username="test2"
+        telegram_username="test2",
+        project_id = project.id
     )
-    item1 = await crud.create(new_user_1)
-    item2 = await crud.create(new_user_2)
+
+    item2 = await user_crud.create(new_user_2)
     if print_flag:
         print("create")
         print(item1)
@@ -141,15 +152,25 @@ async def test_delete(print_flag: bool = True):
 
 
 if __name__ == "__main__":
+    user_connector = MemoryConnector(UserSchema)
+    user_crud = CRUD(
+        schema=UserSchema,
+        connector=user_connector)
+
+    project_connector = MemoryConnector(ProjectSchema)
+    project_crud = CRUD(
+        schema=ProjectSchema,
+        connector=project_connector)
+
     # чтобы распечатать результаты каждого теста, надо передать print_flag = True
-    # asyncio.run(test_create(print_flag=False))
-    # asyncio.run(test_count(print_flag=False))
+    asyncio.run(test_create(print_flag=True))
+    asyncio.run(test_count(print_flag=False))
     # asyncio.run(test_get_one(print_flag=False))
     # asyncio.run(test_get_all(print_flag=False))
     # asyncio.run(test_update(print_flag=False))
     # asyncio.run(test_delete(print_flag=False))
 
-    print(f"_storage = {connector._storage}")
+    print(f"_inmemory_storage = {_inmemory_storage}")
 
     # router = Router(crud=crud)
     # app.include_router(router)

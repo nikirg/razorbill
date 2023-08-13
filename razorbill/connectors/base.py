@@ -4,7 +4,15 @@ from pydantic import BaseModel
 
 
 class BaseConnector(ABC):
-    schema: Type[BaseModel]
+    @property
+    @abstractmethod
+    def schema(self) -> Type[BaseModel]:
+        pass
+
+    @property
+    @abstractmethod
+    def pk_name(self) -> str:
+        pass
 
     @abstractmethod
     async def count(self, filters: dict[str, Any] | None = None) -> int:
@@ -31,5 +39,5 @@ class BaseConnector(ABC):
         pass
 
     @abstractmethod
-    async def delete_one(self, obj_id: str | int) -> BaseModel:
+    async def delete_one(self, obj_id: str | int):
         pass

@@ -1,10 +1,9 @@
 from enum import Enum
 from typing import Callable, Type
-
 from fastapi import APIRouter, Path, HTTPException, Depends
 
-from razorbill.crud.base import CRUD
-from razorbill.converter import build_schema
+
+from razorbill.crud import CRUD
 from razorbill.deps import (
     build_exists_dependency, 
     build_last_parent_dependency, 
@@ -14,18 +13,13 @@ from razorbill.deps import (
 )
 
 # GET /project/{project_id}/user/
+from razorbill.utils import get_slug_schema_name
 
 
 class Router(APIRouter):
     def __init__(
         self,
         crud: CRUD,
-        # schema: Type[BaseModel] | None = None,
-        # create_schema: Type[BaseModel] | None = None,
-        # update_schema: Type[BaseModel] | None = None,
-        # overwrite_schema: bool = False,
-        # overwrite_create_schema: bool = False,
-        # overwrite_update_schema: bool = False,
         items_per_query: int = 10,
         count_endpoint: bool | list[Callable] = True,
         get_all_endpoint: bool | list[Callable] = True,
@@ -38,11 +32,15 @@ class Router(APIRouter):
         prefix: str | None = None,
         tags: list[str | Enum] | None = None,
         dependencies: list[Depends] | None = None,
+        schema_slug: str | None = None,
         **kwargs,
     ):
         self.crud = crud
+        self._parent_id_dependency = None
+        model_name = crud.schema.__name__
+        if schema_slug is None:
+            self._schema_slug = get_slug_schema_name(crud.schema.__name__)
 
-        model_name = crud.slug
         fields_to_exclude = ["id", "_id"]
         
         if parent_crud is not None:
@@ -62,7 +60,7 @@ class Router(APIRouter):
                 prefix += parent_item_path
             
         if tags is None:
-            tags = [model_name.slug]
+            tags = [self._schema_slug]
             
         
         item_tag, path, item_path = build_path_elements(model_name)
@@ -71,9 +69,11 @@ class Router(APIRouter):
         self._path_field = Path(alias=item_tag) if path_item_parameter is None else path_item_parameter
 
         self._pagination_dependency = build_pagination_dependency(items_per_query)
-        
-        self.Schema = build_schema(crud.data_model, crud.schema, crud.overwrite_schema, fields_to_exclude)
-        self.CreateSchema = build_schema(crud.data_model, crud.create_schema, crud.overwrite_create_schema, fields_to_exclude)
+
+        self.Schema = crud.schema
+        self.CreateSchema = crud.create_schema
+        # self.Schema = build_schema(crud1.data_model, crud1.schema, crud1.overwrite_schema, fields_to_exclude)
+        # self.CreateSchema = build_schema(crud1.data_model, crud1.create_schema, crud1.overwrite_create_schema, fields_to_exclude)
         
 
         if count_endpoint:
