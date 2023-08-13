@@ -1,19 +1,18 @@
 import asyncio
 import pytest
-from ..razorbill.crud import CRUD
-from ..razorbill.connectors.memory import MemoryConnector, _inmemory_storage
-from .schemas import UserSchema, ProjectSchema, CreateUserSchema, CreateProjectSchema
+from crud import CRUD
+from tests.models import Project, User
 from typing import Type
 from pydantic import BaseModel
 
 
 def new_project(name):
-    return CreateProjectSchema(
+    return Project(
         name=name,
     )
 
 def new_user(telegram_id: str, telegram_username: str, project_id: int = None):
-    return CreateUserSchema(
+    return User(
         telegram_id=telegram_id,
         telegram_username=telegram_username,
         project_id=project_id
@@ -21,15 +20,17 @@ def new_user(telegram_id: str, telegram_username: str, project_id: int = None):
 
 
 @pytest.mark.asyncio
-async def test_create(user_memory_connector, project_memory_connector):
+async def test_create(user_alchemy_connector, project_alchemy_connector):
+    await user_alchemy_connector.drop_all_tables()
+    await project_alchemy_connector.drop_all_tables()
 
     user_crud = CRUD(
-        schema=UserSchema,
-        connector=user_memory_connector)
+        schema=user_alchemy_connector.schema,
+        connector=user_alchemy_connector)
 
     project_crud = CRUD(
-        schema=ProjectSchema,
-        connector=project_memory_connector)
+        schema=project_alchemy_connector.schema,
+        connector=project_alchemy_connector)
 
     @user_crud.before_create
     async def before_create_handler(obj: Type[BaseModel]) -> Type[BaseModel]:
@@ -41,8 +42,8 @@ async def test_create(user_memory_connector, project_memory_connector):
 
     user_1 = await user_crud.create(new_user("1", "test1", project.id))
     user_2 = await user_crud.create(new_user("2", "test2"))
-    print(f"in create {_inmemory_storage}")
     assert project.id == 1
     assert user_1.telegram_id == '3'
     assert user_2.project_id == None
+
 

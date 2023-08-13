@@ -1,7 +1,7 @@
 from typing import Type
 from pydantic import create_model
 import re
-from ..razorbill.types import T
+from _types import T
 
 def schema_factory(
     schema_cls: Type[T], pk_field_name: str = "id", prefix: str = "Create"

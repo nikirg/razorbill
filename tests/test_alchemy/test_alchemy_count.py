@@ -1,16 +1,12 @@
 import asyncio
 import pytest
-from ..razorbill.crud import CRUD
-from ..razorbill.connectors.memory import MemoryConnector, _inmemory_storage
-from .schemas import UserSchema, ProjectSchema, CreateUserSchema, CreateProjectSchema
-from typing import Type
-from pydantic import BaseModel
-
+from crud import CRUD
+from tests.models import User, Project
 
 
 
 def new_user(telegram_id: str, telegram_username: str, project_id: int = None):
-    return CreateUserSchema(
+    return User(
         telegram_id=telegram_id,
         telegram_username=telegram_username,
         project_id=project_id
@@ -18,11 +14,11 @@ def new_user(telegram_id: str, telegram_username: str, project_id: int = None):
 
 
 @pytest.mark.asyncio
-async def test_count_without_filter(user_memory_connector):
-
+async def test_count_without_filter(user_alchemy_connector):
+    await user_alchemy_connector.drop_all_tables()
     user_crud = CRUD(
-        schema=UserSchema,
-        connector=user_memory_connector)
+        schema=user_alchemy_connector.schema,
+        connector=user_alchemy_connector)
     count = await user_crud.count()
     assert count == 0
     await user_crud.create(new_user("1", "test1"))
@@ -32,11 +28,11 @@ async def test_count_without_filter(user_memory_connector):
 
 
 @pytest.mark.asyncio
-async def test_count_with_filter(user_memory_connector):
-
+async def test_count_with_filter(user_alchemy_connector):
+    await user_alchemy_connector.drop_all_tables()
     user_crud = CRUD(
-        schema=UserSchema,
-        connector=user_memory_connector)
+        schema=user_alchemy_connector.schema,
+        connector=user_alchemy_connector)
 
     await user_crud.create(new_user("1", "test1"))
     await user_crud.create(new_user("1", "test2"))

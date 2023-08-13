@@ -11,8 +11,14 @@ fastapi = "^0.98.0"
 sqlalchemy = "^2.0.17"
 pytest = "^7.4.0"
 pytest-asyncio = "^0.21.1"
+loguru = "^0.7.0"
+psycopg2 = "^2.9.7"
+asyncpg = "^0.28.0"
+asyncpgsa = "^0.27.1"
+greenlet = "^2.0.2"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+

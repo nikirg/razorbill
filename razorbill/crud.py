@@ -2,8 +2,8 @@ from typing import Any, Type, Callable
 from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, validate_arguments
-from ..razorbill.connectors.base import BaseConnector
-from ..razorbill.utils import schema_factory
+from connectors.base import BaseConnector
+from utils import schema_factory
 
 
 class CRUD:

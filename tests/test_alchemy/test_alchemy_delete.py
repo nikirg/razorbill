@@ -1,8 +1,7 @@
 import asyncio
 import pytest
-from ..razorbill.crud import CRUD
-from ..razorbill.connectors.memory import MemoryConnector, _inmemory_storage
-from .schemas import UserSchema, ProjectSchema, CreateUserSchema, CreateProjectSchema
+from crud import CRUD
+from tests.models import User
 from typing import Type
 from pydantic import BaseModel
 
@@ -10,7 +9,7 @@ from pydantic import BaseModel
 
 
 def new_user(telegram_id: str, telegram_username: str, project_id: int = None):
-    return CreateUserSchema(
+    return User(
         telegram_id=telegram_id,
         telegram_username=telegram_username,
         project_id=project_id
@@ -18,11 +17,11 @@ def new_user(telegram_id: str, telegram_username: str, project_id: int = None):
 
 
 @pytest.mark.asyncio
-async def test_delete(user_memory_connector):
-
+async def test_delete(user_alchemy_connector):
+    await user_alchemy_connector.drop_all_tables()
     user_crud = CRUD(
-        schema=UserSchema,
-        connector=user_memory_connector)
+        schema=user_alchemy_connector.schema,
+        connector=user_alchemy_connector)
 
     @user_crud.before_delete
     async def before_delete_handler(obj_id: str | int) -> Type[BaseModel]:
@@ -39,7 +38,6 @@ async def test_delete(user_memory_connector):
     count = await user_crud.count()
     assert count == 1
 
-    print(f"in delete {_inmemory_storage}")
 
 
 

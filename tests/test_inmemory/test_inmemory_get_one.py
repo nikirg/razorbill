@@ -1,8 +1,8 @@
 import asyncio
 import pytest
-from ..razorbill.crud import CRUD
-from ..razorbill.connectors.memory import MemoryConnector, _inmemory_storage
-from .schemas import UserSchema, ProjectSchema, CreateUserSchema, CreateProjectSchema
+from crud import CRUD
+from connectors.memory import MemoryConnector, _inmemory_storage
+from tests.schemas import UserSchema, ProjectSchema, CreateUserSchema, CreateProjectSchema
 from typing import Type
 from pydantic import BaseModel
 
