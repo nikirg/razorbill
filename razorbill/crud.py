@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel, validate_arguments
 from razorbill.connectors.base import BaseConnector
 from razorbill.utils import schema_factory
-
+# from razorbill.router import router_builder
 
 class CRUD:
     def __init__(
@@ -42,6 +42,10 @@ class CRUD:
         self._after_create_func = None
         self._after_update_func = None
         self._after_delete_func = None
+
+    # @property
+    # def build_api_router(self) -> Callable:
+    #     return router_builder
 
     @validate_arguments
     def before_create(self, func: Callable) -> Callable:

@@ -4,7 +4,7 @@ import re
 from razorbill._types import T
 
 def schema_factory(
-    schema_cls: Type[T], pk_field_name: str = "id", prefix: str = "Create"
+    schema_cls: Type[T], pk_field_name: str = "_id", prefix: str = "Create"
 ) -> Type[T]:
     fields = {
         f.name: (f.type_, ...)

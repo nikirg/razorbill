@@ -78,6 +78,7 @@ def init_deps(funcs: list[Callable] | bool) -> list[Depends]:
 
 def build_path_elements(name: str) -> tuple[str, str, str]:
     """Создает строковые элементы URL"""
+    # TODO UserSchema ->  user_schema
     item_tag = name + "_id"
     item_path_tag = "{" + item_tag + "}"
     path = f"/{name}/"
