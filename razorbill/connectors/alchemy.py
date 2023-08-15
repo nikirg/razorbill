@@ -167,7 +167,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
                 await session.commit()
 
     @staticmethod
-    def sqlalchemy_to_pydantic(
+    def _sqlalchemy_to_pydantic(
             db_model: Type,
             *,
             config: Type = OrmConfig,

@@ -9,33 +9,33 @@ import asyncio
 
 app = FastAPI()
 
-#
-# class UserSchema(BaseModel):
-#     id: int
-#     telegram_id: str
-#     telegram_username: str
-#     project_id: int
-#
-#
-# class ProjectSchema(BaseModel):
-#     id: int
-#     name: str
-#
-#
-# class CreateUserSchema(BaseModel):
-#     telegram_id: str
-#     telegram_username: str
-#     project_id: int
-#
-#
-# class CreateProjectSchema(BaseModel):
-#     name: str
-#
-#
-# class UpdateUserSchema(BaseModel):
-#     telegram_id: str
-#     telegram_username: str
-#     project_id: int
+
+class UserSchema(BaseModel):
+    id: int
+    telegram_id: str
+    telegram_username: str
+    project_id: int
+
+
+class ProjectSchema(BaseModel):
+    id: int
+    name: str
+
+
+class CreateUserSchema(BaseModel):
+    telegram_id: str
+    telegram_username: str
+    project_id: int
+
+
+class CreateProjectSchema(BaseModel):
+    name: str
+
+
+class UpdateUserSchema(BaseModel):
+    telegram_id: str
+    telegram_username: str
+    project_id: int
 
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
@@ -206,30 +206,31 @@ async def test_create(print_flag: bool = True):
 
 
 if __name__ == "__main__":
-    database_url = 'postgresql+asyncpg://razorbill:secret@localhost:5432/test'
-
-    user_connector = AsyncSQLAlchemyConnector(
-        url = database_url,
-        model=User)
-
-    user_crud = CRUD(
-        schema=user_connector.schema,
-        connector=user_connector)
-
-    asyncio.run(test_create(print_flag=True))
-
+    # database_url = 'postgresql+asyncpg://razorbill:secret@localhost:5432/test'
+    #
+    # user_connector = AsyncSQLAlchemyConnector(
+    #     url = database_url,
+    #     model=User)
     #
     # user_crud = CRUD(
-    #     schema=UserSchema,
+    #     schema=user_connector.schema,
     #     connector=user_connector)
     #
-    # project_connector = MemoryConnector(ProjectSchema)
+    # asyncio.run(test_create(print_flag=True))
+
+    user_connector = MemoryConnector(UserSchema)
+    user_crud = CRUD(
+        connector=user_connector)
+    router = Router(crud=user_crud)
+    app.include_router(router)
+
+    #project_connector = MemoryConnector(ProjectSchema)
     # project_crud = CRUD(
     #     schema=ProjectSchema,
     #     connector=project_connector)
 
     # чтобы распечатать результаты каждого теста, надо передать print_flag = True
-    # asyncio.run(test_create(print_flag=True))
+    #asyncio.run(test_create(print_flag=True))
     # asyncio.run(test_count(print_flag=False))
     # asyncio.run(test_get_one(print_flag=False))
     # asyncio.run(test_get_all(print_flag=False))
@@ -237,5 +238,5 @@ if __name__ == "__main__":
     # asyncio.run(test_delete(print_flag=False))
 
 
-    # router = Router(crud=crud)
-    # app.include_router(router)
+    router = Router(crud=user_crud)
+    app.include_router(router)
