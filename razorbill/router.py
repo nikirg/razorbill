@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Callable, Type
+from typing import Callable, Type, Annotated
 from fastapi import APIRouter, Path, HTTPException, Depends
 
 from razorbill.crud import CRUD
@@ -14,7 +14,7 @@ from typing import Any, Callable, Generic, List, Optional, Type, Union
 from ._types import T, DEPENDENCIES
 
 # GET /project/{project_id}/user/
-from razorbill.utils import get_slug_schema_name
+from razorbill.utils import get_slug_schema_name, schema_factory
 
 def empty_dependency():
     return None
@@ -51,11 +51,22 @@ class Router(APIRouter):
         if schema_slug is None:
             self._schema_slug = get_slug_schema_name(item_name)
         fields_to_exclude = ["id", "_id"]
+        self.Schema = crud.schema
+        self.CreateSchema = crud.create_schema
+        self.UpdateSchema = crud.update_schema
 
         if parent_crud is not None:
+            #TODO тут из схемы надо удалить родительйский айди
+
             if parent_item_name is None:
                 parent_item_name = parent_crud.schema.__name__
+
+            # TODO его надо исключить из create and update schemas
+
             parent_item_tag, _, parent_item_path = build_path_elements(parent_item_name)
+            self.CreateSchema = schema_factory(crud.create_schema, parent_item_tag)
+            self.UpdateSchema = schema_factory(crud.update_schema, parent_item_tag, prefix='Update')
+
             parent_exists_dependency = build_exists_dependency(parent_crud, parent_item_tag)
             self._parent_id_dependency = build_last_parent_dependency(parent_item_tag)
             fields_to_exclude.append(parent_item_tag)
@@ -79,10 +90,6 @@ class Router(APIRouter):
         self._path_field = Path(alias=item_tag) if path_item_parameter is None else path_item_parameter
 
         self._pagination_dependency = build_pagination_dependency(items_per_query)
-
-        self.Schema = crud.schema
-        self.CreateSchema = crud.create_schema
-        self.UpdateSchema = crud.update_schema
 
         super().__init__(
             dependencies=dependencies,
@@ -148,6 +155,7 @@ class Router(APIRouter):
                 status_code=404, detail=f"item with {item_id=} not found"
             )
 
+
     def _init_create_one_endpoint(self, deps: list[Callable] | bool):
         @self.post(
             self._path, response_model=self.Schema, dependencies=init_deps(deps)
@@ -156,10 +164,16 @@ class Router(APIRouter):
                 body: self.CreateSchema,
                 parent: dict[str, int] = self._parent_id_dependency,
         ):
-            payload = body
-            if parent is not None:
-                payload = body | parent
-            item = await self.crud.create(payload)
+            # payload = body
+            # if parent is not None:
+            #     payload = body | parent
+            # item = await self.crud.create(payload)
+            #
+            for key, value in parent.items():
+                body[key] = value
+                # payload = body | parent
+
+            item = await self.crud.create(self.crud.create_schema())
 
             return item
 

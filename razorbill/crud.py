@@ -20,6 +20,7 @@ class CRUD:
     ):
         self.pk: str = pk if connector.pk_name is None else connector.pk_name
         self.schema = schema if schema is not None else connector.schema
+
         self.create_schema = (
             create_schema
             if create_schema

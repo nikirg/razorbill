@@ -272,15 +272,33 @@ class Project(Base):
 
 database_url = 'postgresql+asyncpg://razorbill:secret@localhost:5432/test'
 
-user_router = builder_router(alchemy_connector=True, url=database_url, model=User)
-project_router = builder_router(alchemy_connector=True, url=database_url, model=Project)
+# user_router = builder_router(alchemy_connector=True, url=database_url, model=User)
+# project_router = builder_router(alchemy_connector=True, url=database_url, model=Project)
+#
+# app.include_router(user_router)
+# app.include_router(project_router)
+user_connector = AsyncSQLAlchemyConnector(
+    url=database_url,
+    model=User
+)
+user_crud = CRUD(
+    connector= user_connector
+)
 
+project_connector = AsyncSQLAlchemyConnector(
+    url=database_url,
+    model=Project
+)
+project_crud = CRUD(
+    connector= project_connector
+)
+#project_router = Router(project_crud)
+user_router = Router(user_crud, parent_crud=project_crud)
+#app.include_router(project_router)
 app.include_router(user_router)
-app.include_router(project_router)
 
-
-# router = builder_router(url=database_url, schema=UserSchema)
-
+# метод который берет 2 модели педантики и мерджит без валидации динамически
+# все ошибки надо обработать
 # разобраться почему не правильная схема в свагере
 # протестить
 # создать одну функцию билдер, который это все собирает
