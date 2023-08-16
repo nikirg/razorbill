@@ -5,9 +5,12 @@ from loguru import logger
 
 from sqlalchemy import and_, func, update, insert
 import sqlalchemy
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm import class_mapper
 from sqlalchemy.future import select
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.sql.schema import Column
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy import create_engine
@@ -36,7 +39,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         self.session_maker = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
         # self.session_maker = AsyncSession(self.engine, expire_on_commit=False)
 
-        self._schema = self.sqlalchemy_to_pydantic(self.model)
+        self._schema = self._sqlalchemy_to_pydantic(self.model)
         self._pk_name = pk_name
 
     @property
@@ -59,18 +62,17 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             await connection.run_sync(self.model.metadata.drop_all)
             await connection.run_sync(self.model.metadata.create_all)
 
-
-
     async def create_one(
-            self, obj: DeclarativeBase
+            self, obj: Type[BaseModel]
     ) -> Type[BaseModel]:
         await self.init_model()
-
+        sql_model = self._pydantic_to_sqlalchemy(pydantic_obj=obj, sqlalchemy_model=self.model)
         async with self.session_maker.begin() as session:
-            session.add(obj)
+            session.add(sql_model)
             try:
                 await session.commit()
-                return self.schema(**obj.__dict__)
+                created_sql_model = await session.merge(sql_model)
+                return self.schema(**created_sql_model.__dict__)
             except sqlalchemy.exc.IntegrityError as error:
                 raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
 
@@ -78,7 +80,10 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             self, filters: dict[str, Any] = {}
     ) -> int:
         await self.init_model()
-        where = [getattr(self.model, key) == value for key, value in filters.items()]
+        # TODO тут надо проверить эти filters так как передается None а не {}
+        where = []
+        if filters is not None:
+            where = [getattr(self.model, key) == value for key, value in filters.items()]
 
         statement = select(func.count()).select_from(
             select(self.model).where(and_(True, *where)).subquery()
@@ -100,8 +105,9 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         if populate is not None:
             for field in populate:
                 statement = statement.join(field)
-
-        where = [getattr(self.model, key) == value for key, value in filters.items()]
+        where = []
+        if filters is not None:
+            where = [getattr(self.model, key) == value for key, value in filters.items()]
         statement = statement.where(and_(True, *where)).offset(skip).limit(limit)
 
         async with self.session_maker.begin() as session:
@@ -134,21 +140,23 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             return self.schema(**item.__dict__) if item else None
 
     async def update_one(
-            self, obj_id: str | int, obj: DeclarativeBase
+            self, obj_id: str | int, obj: Type[BaseModel]
     ) -> Type[BaseModel]:
         await self.init_model()
-        model = type(obj)
+        sql_model = self._pydantic_to_sqlalchemy(pydantic_obj=obj, sqlalchemy_model=self.model)
         attributes_dict = {
-            column.name: getattr(obj, column.name)
-            for column in obj.__table__.columns
+            column.name: getattr(sql_model, column.name)
+            for column in sql_model.__table__.columns
             if column.name != self.pk_name
         }
+
         statement = (
-            update(model)
+            update(self.model)
             .values(attributes_dict)
-            .where(model.id == obj_id)
+            .where(self.model.id == obj_id)
             .execution_options(synchronize_session="fetch")
         )
+
         try:
             async with self.session_maker.begin() as session:
                 await session.execute(statement)
@@ -204,3 +212,17 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             model_name, __base__=base_pydantic_model, __config__=config, **fields
         )
         return pydantic_model
+
+    @staticmethod
+    def _pydantic_to_sqlalchemy(pydantic_obj: BaseModel, sqlalchemy_model: DeclarativeMeta) -> DeclarativeBase:
+        data = pydantic_obj.dict()
+        mapped_fields = {}
+        mapper = class_mapper(sqlalchemy_model)
+
+        for field in mapper.columns:
+            field_name = field.key
+            if field_name in data:
+                mapped_fields[field_name] = data[field_name]
+
+        sqlalchemy_instance = sqlalchemy_model(**mapped_fields)
+        return sqlalchemy_instance

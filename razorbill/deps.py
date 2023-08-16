@@ -2,6 +2,7 @@ from typing import Callable
 
 from fastapi import HTTPException, Depends, Path, Request
 from razorbill.crud import CRUD
+import re
 
 
 def build_exists_dependency(
@@ -75,10 +76,14 @@ def init_deps(funcs: list[Callable] | bool) -> list[Depends]:
         return [Depends(func) for func in funcs]
     return []
 
+def camel_to_snake(name):
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 def build_path_elements(name: str) -> tuple[str, str, str]:
     """Создает строковые элементы URL"""
     # TODO UserSchema ->  user_schema
+    name = camel_to_snake(name)
     item_tag = name + "_id"
     item_path_tag = "{" + item_tag + "}"
     path = f"/{name}/"

@@ -9,13 +9,6 @@ import asyncio
 
 app = FastAPI()
 
-
-class UserSchema(BaseModel):
-    id: int
-    telegram_id: str
-    telegram_username: str
-    project_id: int
-
 #
 # class ProjectSchema(BaseModel):
 #     id: int
@@ -205,7 +198,6 @@ class UserSchema(BaseModel):
 #
 
 
-
 # database_url = 'postgresql+asyncpg://razorbill:secret@localhost:5432/test'
 #
 # user_connector = AsyncSQLAlchemyConnector(
@@ -218,11 +210,76 @@ class UserSchema(BaseModel):
 #
 # asyncio.run(test_create(print_flag=True))
 
-user_connector = MemoryConnector(UserSchema)
-user_crud = CRUD(
-    connector=user_connector)
-router = Router(user_crud, item_name='user')
-app.include_router(router)
+from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.orm import DeclarativeBase
+
+
+#
+# from razorbill.connectors.alchemy import AsyncSQLAlchemyConnector
+# #user_connector = MemoryConnector(UserSchema)
+# #
+
+# user_connector = AsyncSQLAlchemyConnector(
+#     url=database_url,
+#     model=User)
+# project_connector = AsyncSQLAlchemyConnector(
+#     url=database_url,
+#     model=Project)
+#
+# user_crud = CRUD(
+#     connector=user_connector)
+# profect_crud = CRUD(
+#     connector=project_connector)
+#
+# router = Router(user_crud, item_name='user')
+# app.include_router(router)
+#
+# project_router = Router(profect_crud, item_name='project')
+
+
+class UserSchema(BaseModel):
+    id: int
+    telegram_id: str
+    telegram_username: str
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+from razorbill.builder import builder_router
+
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(String, nullable=False)
+    telegram_username = Column(String, nullable=False)
+    project_id = Column(Integer, ForeignKey('projects.id'))
+    project = relationship("Project", back_populates="users")
+
+
+class Project(Base):
+    __tablename__ = 'projects'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+
+    users = relationship("User", back_populates="project")
+
+
+database_url = 'postgresql+asyncpg://razorbill:secret@localhost:5432/test'
+
+user_router = builder_router(alchemy_connector=True, url=database_url, model=User)
+project_router = builder_router(alchemy_connector=True, url=database_url, model=Project)
+
+app.include_router(user_router)
+app.include_router(project_router)
+
+
+# router = builder_router(url=database_url, schema=UserSchema)
 
 # разобраться почему не правильная схема в свагере
 # протестить
@@ -231,14 +288,13 @@ app.include_router(router)
 # добавляем редис
 
 
-
-#project_connector = MemoryConnector(ProjectSchema)
+# project_connector = MemoryConnector(ProjectSchema)
 # project_crud = CRUD(
 #     schema=ProjectSchema,
 #     connector=project_connector)
 
 # чтобы распечатать результаты каждого теста, надо передать print_flag = True
-#asyncio.run(test_create(print_flag=True))
+# asyncio.run(test_create(print_flag=True))
 # asyncio.run(test_count(print_flag=False))
 # asyncio.run(test_get_one(print_flag=False))
 # asyncio.run(test_get_all(print_flag=False))

@@ -16,6 +16,8 @@ from ._types import T, DEPENDENCIES
 # GET /project/{project_id}/user/
 from razorbill.utils import get_slug_schema_name
 
+def empty_dependency():
+    return None
 
 class Router(APIRouter):
     def __init__(
@@ -40,7 +42,8 @@ class Router(APIRouter):
             **kwargs,
     ):
         self.crud = crud
-        self._parent_id_dependency = Depends(lambda x: x)
+        #self._parent_id_dependency = Depends(lambda x: x)
+        self._parent_id_dependency = Depends(empty_dependency)
 
         if item_name is None:
             item_name = crud.schema.__name__
@@ -79,8 +82,8 @@ class Router(APIRouter):
 
         self.Schema = crud.schema
         self.CreateSchema = crud.create_schema
-        # self.Schema = build_schema(crud1.data_model, crud1.schema, crud1.overwrite_schema, fields_to_exclude)
-        # self.CreateSchema = build_schema(crud1.data_model, crud1.create_schema, crud1.overwrite_create_schema, fields_to_exclude)
+        self.UpdateSchema = crud.update_schema
+
         super().__init__(
             dependencies=dependencies,
             prefix=prefix,
@@ -104,6 +107,7 @@ class Router(APIRouter):
 
         if delete_one_endpoint:
             self._init_delete_one_endpoint(delete_one_endpoint)
+
 
     def _init_count_endpoint(self, deps: list[Callable] | bool):
         @self.get(
@@ -149,12 +153,13 @@ class Router(APIRouter):
             self._path, response_model=self.Schema, dependencies=init_deps(deps)
         )
         async def create_one(
-                body: self.CreateSchema,  # TODO проверить айди
+                body: self.CreateSchema,
                 parent: dict[str, int] = self._parent_id_dependency,
         ):
-            payload = body.dict() | parent
-
-            item = await self.crud.create_one(body)
+            payload = body
+            if parent is not None:
+                payload = body | parent
+            item = await self.crud.create(payload)
 
             return item
 
@@ -168,10 +173,14 @@ class Router(APIRouter):
                 *,
                 parent: dict[str, int] = self._parent_id_dependency,
                 item_id: int = self._path_field,
-                body: self.CreateSchema,
+                body: self.UpdateSchema,
         ):
-            payload = body.dict(exclude_unset=True) | parent
-            item = await self.crud.update_one(item_id, payload)
+            #payload = body.dict(exclude_unset=True)
+            payload = body
+            if parent is not None:
+                #payload = body.dict(exclude_unset=True) | parent
+                payload = body | parent
+            item = await self.crud.update(item_id, payload)
             return item
 
     def _init_delete_one_endpoint(self, deps: list[Callable] | bool):
@@ -180,7 +189,7 @@ class Router(APIRouter):
                 parent: dict[str, int] = self._parent_id_dependency,
                 item_id: int = self._path_field,
         ):
-            await self.crud.delete_one(item_id)
+            await self.crud.delete(item_id)
 
 #
 # from fastapi import APIRouter

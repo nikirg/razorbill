@@ -7,7 +7,7 @@ _inmemory_storage: dict[
 
 
 class MemoryConnector(BaseConnector):
-    def __init__(self, schema: Type[BaseModel], pk_name: str = "_id") -> None:
+    def __init__(self, schema: Type[BaseModel], pk_name: str = "id") -> None:
         self._id = 1
         self._pk_name = pk_name
         self._schema = schema
@@ -58,9 +58,10 @@ class MemoryConnector(BaseConnector):
         result = []
 
         for obj_id, obj in _inmemory_storage[self._schema.__name__].items():
-            matches_filters = all(getattr(obj, key) == value for key, value in filters.items())
-            if matches_filters:
-                result.append(obj)
+            result.append(obj)
+            # matches_filters = all(getattr(obj, key) == value for key, value in filters.items())
+            # if matches_filters:
+            #     result.append(obj)
 
         if populate is not None:
             pass
@@ -75,8 +76,15 @@ class MemoryConnector(BaseConnector):
 
         update_obj = _inmemory_storage[self._schema.__name__].get(obj_id)
         if update_obj is not None:
-            _inmemory_storage[self._schema.__name__][obj_id] = self.schema(**obj.dict())
-            return _inmemory_storage[self._schema.__name__][obj_id]
+            _obj = obj.dict()
+            updated_fields = {key: value for key, value in _obj.items() if key != "id"}
+            if updated_fields:
+                updated_fields["id"] = obj_id
+                updated_instance = self.schema(**updated_fields)
+                _inmemory_storage[self._schema.__name__][obj_id] = updated_instance
+                return _inmemory_storage[self._schema.__name__][obj_id]
+            else:
+                return update_obj
 
         raise ValueError("Not found")
 
