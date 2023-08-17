@@ -15,8 +15,9 @@ def build_exists_dependency(
     ):
         item = await crud.get_one(item_id)
         if item is None:
+            print()
             raise HTTPException(
-                status_code=404, detail=f"{crud.name} with {item_id=} not found"
+                status_code=404, detail=f"{crud.schema.__name__} with {item_tag}={item_id} not found"
             )
 
     return Depends(dep)

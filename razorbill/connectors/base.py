@@ -39,5 +39,5 @@ class BaseConnector(ABC):
         pass
 
     @abstractmethod
-    async def delete_one(self, obj_id: str | int):
+    async def delete_one(self, obj_id: str | int) -> bool:
         pass

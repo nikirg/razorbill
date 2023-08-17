@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.openapi.docs import get_swagger_ui_html
 from typing import Type
 from pydantic import BaseModel
 from razorbill.crud import CRUD
@@ -277,25 +278,20 @@ database_url = 'postgresql+asyncpg://razorbill:secret@localhost:5432/test'
 #
 # app.include_router(user_router)
 # app.include_router(project_router)
-user_connector = AsyncSQLAlchemyConnector(
-    url=database_url,
-    model=User
-)
-user_crud = CRUD(
-    connector= user_connector
-)
+user_connector = AsyncSQLAlchemyConnector(url=database_url,model=User)
+user_crud = CRUD(connector= user_connector)
 
-project_connector = AsyncSQLAlchemyConnector(
-    url=database_url,
-    model=Project
-)
-project_crud = CRUD(
-    connector= project_connector
-)
-#project_router = Router(project_crud)
+project_connector = AsyncSQLAlchemyConnector(url=database_url,model=Project)
+project_crud = CRUD(connector= project_connector)
+
+project_router = Router(project_crud)
 user_router = Router(user_crud, parent_crud=project_crud)
-#app.include_router(project_router)
+app.include_router(project_router)
 app.include_router(user_router)
+
+
+
+
 
 # метод который берет 2 модели педантики и мерджит без валидации динамически
 # все ошибки надо обработать

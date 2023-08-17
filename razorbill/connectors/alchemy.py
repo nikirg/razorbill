@@ -72,6 +72,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             try:
                 await session.commit()
                 created_sql_model = await session.merge(sql_model)
+
                 return self.schema(**created_sql_model.__dict__)
             except sqlalchemy.exc.IntegrityError as error:
                 raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
@@ -162,17 +163,20 @@ class AsyncSQLAlchemyConnector(BaseConnector):
                 await session.execute(statement)
                 await session.commit()
                 updated_obj = await self.get_one(obj_id)
+
             return self.schema(**updated_obj.__dict__) if updated_obj else None
         except sqlalchemy.exc.IntegrityError as error:
             raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
 
-    async def delete_one(self, obj_id: str | int):
+    async def delete_one(self, obj_id: str | int) -> bool:
         await self.init_model()
         async with self.session_maker.begin() as session:
             item = await session.get(self.model, obj_id)
             if item is not None:
                 await session.delete(item)
                 await session.commit()
+                return True
+        return False
 
     @staticmethod
     def _sqlalchemy_to_pydantic(

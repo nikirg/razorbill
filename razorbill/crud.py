@@ -119,9 +119,10 @@ class CRUD:
     async def delete(self, obj_id: str | int):
         if self._before_delete_func is not None:
             await self._before_delete_func(obj_id)
-        await self._connector.delete_one(obj_id=obj_id)
+        record = await self._connector.delete_one(obj_id=obj_id)
         if self._after_delete_func is not None:
-            await self._after_delete_func()
+            await self._after_delete_func(record)
+        return record
 
 #
 # if __name__ == "main":
