@@ -1,5 +1,3 @@
-from typing import Type
-from pydantic import create_model
 import re
 from razorbill._types import T
 
@@ -8,9 +6,8 @@ from pydantic import BaseModel, create_model
 
 T = TypeVar("T", bound=BaseModel)
 
-
 def schema_factory(
-        schema_cls: Type[T], pk_field_name: str = "_id", prefix: str = "Create", skip_validation: bool = False
+        schema_cls: Type[T], pk_field_name: str = "_id", prefix: str = "Create"
 ) -> Type[T]:
     fields = {
         f.name: (f.type_, ...)
@@ -20,12 +17,6 @@ def schema_factory(
 
     name = prefix + schema_cls.__name__
     schema: Type[T] = create_model(__model_name=name, **fields)  # type: ignore
-    if skip_validation:
-        def skip_validation_method(cls, value):
-            return value
-
-        for field_name in schema.__annotations__:
-            setattr(schema, field_name, skip_validation_method)
 
     return schema
 

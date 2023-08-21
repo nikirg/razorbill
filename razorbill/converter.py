@@ -4,30 +4,18 @@ from pydantic import BaseConfig, BaseModel, create_model
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm.properties import ColumnProperty
 
-#from razorbill.model import BaseDataModel
-
 
 class OrmConfig(BaseConfig):
     orm_mode = True
 
-#
-# def build_schema(data_model: Type[BaseDataModel], schema: Type[BaseModel] | None, overwrite_schema: bool, exclude_fields: list[str]):
-#     if schema is None:
-#         return sqlalchemy_to_pydantic(data_model, exclude=exclude_fields)
-#     elif overwrite_schema:
-#         return schema
-#     else:
-#         return sqlalchemy_to_pydantic(data_model, exclude=exclude_fields, base_pydantic_model=schema)
-#
-
 
 def sqlalchemy_to_pydantic(
-    db_model: Type,
-    *,
-    config: Type = OrmConfig,
-    exclude: Container[str] = [],
-    prefix: str | None = None,
-    base_pydantic_model: Type[BaseModel] | None = None,
+        db_model: Type,
+        *,
+        config: Type = OrmConfig,
+        exclude: Container[str] = [],
+        prefix: str | None = None,
+        base_pydantic_model: Type[BaseModel] | None = None,
 ) -> Type[BaseModel]:
     model_name = db_model.__name__
 
@@ -58,4 +46,3 @@ def sqlalchemy_to_pydantic(
         model_name, __base__=base_pydantic_model, __config__=config, **fields
     )
     return pydantic_model
-

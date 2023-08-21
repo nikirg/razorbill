@@ -1,15 +1,12 @@
-from fastapi import FastAPI
-from typing import Type
 from pydantic import BaseModel
 from razorbill.crud import CRUD
 from razorbill.router import Router
 from razorbill.connectors.memory import MemoryConnector
 from razorbill.connectors.alchemy import AsyncSQLAlchemyConnector
-from typing import Any, Callable, Generic, List, Optional, Type, Union
 from sqlalchemy.orm import DeclarativeBase
 from enum import Enum
 from typing import Callable, Type
-from fastapi import APIRouter, Path, HTTPException, Depends
+from fastapi import Path, Depends
 
 
 def builder_crud(
@@ -18,39 +15,25 @@ def builder_crud(
         model: Type[DeclarativeBase] | None = None,
         memory_connector: bool | None = True,
         alchemy_connector: bool | None = False,
-        create_schema: Type[BaseModel] | None = None,
-        update_schema: Type[BaseModel] | None = None,
-        overwrite_schema: bool = False,
-        overwrite_create_schema: bool = False,
-        overwrite_update_schema: bool = False,
         pk: str | None = "id",
 ):
     if alchemy_connector:
         if not url or not model:
-            return "url and model is required"
+            return None
         connector = AsyncSQLAlchemyConnector(
             model=model,
             url=url,
             pk_name=pk)
     else:
-        if not schema:
-            return "schema is required"
+        if schema is None:
+            return None
 
         connector = MemoryConnector(
             schema=schema,
             pk_name=pk
         )
 
-    return CRUD(
-        connector=connector,
-        schema=schema,
-        create_schema=create_schema,
-        update_schema=update_schema,
-        overwrite_schema=overwrite_schema,
-        overwrite_create_schema=overwrite_create_schema,
-        overwrite_update_schema=overwrite_update_schema,
-        pk=pk
-    )
+    return CRUD(connector=connector)
 
 
 def builder_router(
@@ -74,12 +57,13 @@ def builder_router(
         create_one_endpoint: bool | list[Callable] = True,
         update_one_endpoint: bool | list[Callable] = True,
         delete_one_endpoint: bool | list[Callable] = True,
-        parent_crud: CRUD | None = None,
         path_item_parameter: Type[Path] | None = None,
         prefix: str = '',
         tags: list[str | Enum] | None = None,
         dependencies: list[Depends] | None = None,
         schema_slug: str | None = None,
+        parent_schema: Type[BaseModel] | None = None,
+        parent_model: Type[DeclarativeBase] | None = None,
 
 ):
     crud = builder_crud(
@@ -88,14 +72,17 @@ def builder_router(
         model=model,
         memory_connector=memory_connector,
         alchemy_connector=alchemy_connector,
-        create_schema=create_schema,
-        update_schema=update_schema,
-        overwrite_schema=overwrite_schema,
-        overwrite_create_schema=overwrite_create_schema,
-        overwrite_update_schema=overwrite_update_schema,
         pk=pk,
-
     )
+    parent_crud = builder_crud(
+        url=url,
+        schema=parent_schema,
+        model=parent_model,
+        memory_connector=memory_connector,
+        alchemy_connector=alchemy_connector,
+        pk=parent_item_name,
+    )
+    print(parent_crud)
     router = Router(
         crud,
         items_per_query=items_per_query,
@@ -113,5 +100,10 @@ def builder_router(
         tags=tags,
         dependencies=dependencies,
         schema_slug=schema_slug,
+        create_schema=create_schema,
+        update_schema=update_schema,
+        overwrite_schema=overwrite_schema,
+        overwrite_create_schema=overwrite_create_schema,
+        overwrite_update_schema=overwrite_update_schema,
     )
     return router

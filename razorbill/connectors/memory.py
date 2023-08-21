@@ -1,9 +1,9 @@
-from typing import Any, Callable, Dict, List, Type, cast, Optional, Union
+from typing import Any, Type
 from .base import BaseConnector
 from pydantic import BaseModel
 
 _inmemory_storage: dict[
-    str, dict[int, BaseModel]] = {}  # key = schema_name, value = {key = (pk, parent_pk | None), value = value }
+    str, dict[int, dict[str, Any]]] = {}  # key = schema_name, value = {key = (pk, parent_pk | None), value = value }
 
 
 class MemoryConnector(BaseConnector):
@@ -27,26 +27,31 @@ class MemoryConnector(BaseConnector):
 
         return id_
 
-    async def create_one(self, obj: Type[BaseModel]) -> BaseModel:
+    async def create_one(self, obj: dict[str, Any]) -> dict[str, Any]:
         id = self._get_next_id()
-        obj_with_id = dict(obj, id=id)
-        obj_instance = self.schema.parse_obj(obj_with_id)
-        _inmemory_storage[self.schema.__name__][id] = obj_instance
-        return obj_instance
+        obj_with_id = {**obj, 'id': id}
+        _inmemory_storage[self.schema.__name__][id] = obj_with_id
+        return obj_with_id
 
     async def count(self, filters: dict[str, Any] | None = None) -> int:
-        filtered_models = _inmemory_storage[self._schema.__name__]
+        filtered_models = _inmemory_storage.get(self._schema.__name__, {})
         if filters:
             filtered_models = [obj for obj in filtered_models.values() if
-                               all(getattr(obj, key) == value for key, value in filters.items())]
+                               all(obj.get(key) == value for key, value in filters.items())]
         return len(filtered_models)
 
-    async def get_one(self, obj_id: str | int) -> BaseModel:
+    async def get_one(self, obj_id: str | int, filters: dict[str, Any] | None = None) -> dict[str, Any] | None:
         obj = _inmemory_storage[self._schema.__name__].get(obj_id)
         if obj is not None:
-            return obj
+            print(obj)
+            print(filters)
+            if filters:
+                matches_filters = all(obj.get(key) == value for key, value in filters.items())
+                if not matches_filters:
+                    return None
 
-        raise ValueError(f"Object with id {obj_id} not found")
+            return obj
+        return None
 
     async def get_many(
             self,
@@ -54,14 +59,20 @@ class MemoryConnector(BaseConnector):
             limit: int,
             filters: dict[str, Any] | None = None,
             populate: list[str] | None = None,
-    ) -> list[BaseModel]:
+    ) -> list[dict[str, Any]]:
         result = []
 
-        for obj_id, obj in _inmemory_storage[self._schema.__name__].items():
-            result.append(obj)
-            # matches_filters = all(getattr(obj, key) == value for key, value in filters.items())
-            # if matches_filters:
-            #     result.append(obj)
+        for obj_id, obj in _inmemory_storage.get(self._schema.__name__, {}).items():
+            matches_filters = True
+
+            if filters:
+                for key, value in filters.items():
+                    if obj.get(key) != value:
+                        matches_filters = False
+                        break
+
+            if matches_filters:
+                result.append(obj)
 
         if populate is not None:
             pass
@@ -69,28 +80,34 @@ class MemoryConnector(BaseConnector):
         return result[skip: skip + limit]
 
     async def update_one(
-            self, obj_id: str | int, obj: Type[BaseModel]
-    ) -> BaseModel | None:
-        if obj_id is None:
-            raise ValueError("obj_id must be provided")
+            self, obj_id: str | int,
+            obj: dict[str, Any],
+            filters: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        if obj_id is not None:
+            update_obj = _inmemory_storage.get(self._schema.__name__, {}).get(obj_id)
+            if update_obj is not None:
+                if filters:
+                    matches_filters = all(update_obj.get(key) == value for key, value in filters.items())
+                    if not matches_filters:
+                        return None
+                _obj = obj.copy()
+                updated_fields = {key: value for key, value in _obj.items() if key != "id"}
+                if updated_fields:
+                    updated_fields["id"] = obj_id
+                    _inmemory_storage[self._schema.__name__][obj_id].update(updated_fields)
+                    return _inmemory_storage[self._schema.__name__][obj_id]
+                else:
+                    return update_obj
+        return None
 
-        update_obj = _inmemory_storage[self._schema.__name__].get(obj_id)
-        if update_obj is not None:
-            _obj = obj.dict()
-            updated_fields = {key: value for key, value in _obj.items() if key != "id"}
-            if updated_fields:
-                updated_fields["id"] = obj_id
-                updated_instance = self.schema(**updated_fields)
-                _inmemory_storage[self._schema.__name__][obj_id] = updated_instance
-                return _inmemory_storage[self._schema.__name__][obj_id]
-            else:
-                return update_obj
-
-        raise ValueError("Not found")
-
-    async def delete_one(self, obj_id: str | int):
+    async def delete_one(self, obj_id: str | int, filters: dict[str, Any] | None = None) -> bool:
         obj = _inmemory_storage[self._schema.__name__].get(obj_id)
         if obj is not None:
+            if filters:
+                matches_filters = all(obj.get(key) == value for key, value in filters.items())
+                if not matches_filters:
+                    return False
             del _inmemory_storage[self._schema.__name__][obj_id]
-            return
-        raise ValueError("Not found")
+            return True
+        return False

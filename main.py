@@ -239,10 +239,6 @@ from sqlalchemy.orm import DeclarativeBase
 # project_router = Router(profect_crud, item_name='project')
 
 
-class UserSchema(BaseModel):
-    id: int
-    telegram_id: str
-    telegram_username: str
 
 
 class Base(DeclarativeBase):
@@ -270,27 +266,47 @@ class Project(Base):
 
     users = relationship("User", back_populates="project")
 
+class UserSchema(BaseModel):
+    id: int
+    telegram_id: str
+    telegram_username: str
+    project_id: int
+
+class ProjectSchema(BaseModel):
+    id: int
+    name: str
+
 
 database_url = 'postgresql+asyncpg://razorbill:secret@localhost:5432/test'
 
-# user_router = builder_router(alchemy_connector=True, url=database_url, model=User)
-# project_router = builder_router(alchemy_connector=True, url=database_url, model=Project)
-#
-# app.include_router(user_router)
-# app.include_router(project_router)
-user_connector = AsyncSQLAlchemyConnector(url=database_url,model=User)
-user_crud = CRUD(connector= user_connector)
+project_router = builder_router(alchemy_connector=True, url=database_url, model=Project)
+user_router = builder_router(alchemy_connector=True, url=database_url, model=User, parent_model=Project, parent_item_name='project')
 
-project_connector = AsyncSQLAlchemyConnector(url=database_url,model=Project)
-project_crud = CRUD(connector= project_connector)
+# project_router = builder_router(schema=ProjectSchema)
+# user_router = builder_router(schema=UserSchema, parent_schema=ProjectSchema, parent_item_name='project')
 
-project_router = Router(project_crud)
-user_router = Router(user_crud, parent_crud=project_crud)
+
+
 app.include_router(project_router)
 app.include_router(user_router)
 
+#
+# user_connector = MemoryConnector(schema=UserSchema)
+# user_crud = CRUD(connector= user_connector)
+# #
+# project_connector = MemoryConnector(schema=ProjectSchema)
+# project_crud = CRUD(connector= project_connector)
+#
+# project_router = Router(project_crud)
+# user_router = Router(user_crud, parent_crud=project_crud, parent_item_name='project')
+# #user_router = Router(user_crud)
+# app.include_router(project_router)
+# app.include_router(user_router)
 
 
+
+# TODO все переделать через словари, облегчить роутер
+# TODO добавить before and after to get_one and get_many
 
 
 # метод который берет 2 модели педантики и мерджит без валидации динамически

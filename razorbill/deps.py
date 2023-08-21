@@ -3,6 +3,7 @@ from typing import Callable
 from fastapi import HTTPException, Depends, Path, Request
 from razorbill.crud import CRUD
 import re
+from razorbill.exceptions import NotFoundError
 
 
 def build_exists_dependency(
@@ -15,10 +16,7 @@ def build_exists_dependency(
     ):
         item = await crud.get_one(item_id)
         if item is None:
-            print()
-            raise HTTPException(
-                status_code=404, detail=f"{crud.schema.__name__} with {item_tag}={item_id} not found"
-            )
+            raise NotFoundError(crud.connector.schema.__name__, item_tag, item_id)
 
     return Depends(dep)
 
@@ -83,7 +81,6 @@ def camel_to_snake(name):
 
 def build_path_elements(name: str) -> tuple[str, str, str]:
     """Создает строковые элементы URL"""
-    # TODO UserSchema ->  user_schema
     name = camel_to_snake(name)
     item_tag = name + "_id"
     item_path_tag = "{" + item_tag + "}"
