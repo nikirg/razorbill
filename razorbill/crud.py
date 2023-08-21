@@ -82,9 +82,9 @@ class CRUD:
 
     async def get_one(self, obj_id: str | int, filters: dict[str, Any] = {}) -> dict[str, Any]:
         if self._before_get_one_func is not None:
-            await self._before_get_one_func(obj_id)
+            await self._before_get_one_func(obj_id, filters)
         item = await self._connector.get_one(obj_id=obj_id, filters=filters)
-        if self._before_get_one_func is not None:
+        if self._after_get_one_func is not None:
             item = await self._after_get_one_func(item)
         return item
 
@@ -130,7 +130,7 @@ class CRUD:
 
     async def delete(self, obj_id: str | int, filters: dict[str, Any] = {}):
         if self._before_delete_func is not None:
-            await self._before_delete_func(obj_id)
+            await self._before_delete_func(obj_id, filters)
         record = await self._connector.delete_one(obj_id=obj_id, filters=filters)
         if self._after_delete_func is not None:
             await self._after_delete_func(record)

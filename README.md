@@ -1,0 +1,1 @@
+Razorbill is a framework for quickly creating API applications using only the description of the data model.
