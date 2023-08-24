@@ -82,7 +82,6 @@ def builder_router(
         alchemy_connector=alchemy_connector,
         pk=parent_item_name,
     )
-    print(parent_crud)
     router = Router(
         crud,
         items_per_query=items_per_query,

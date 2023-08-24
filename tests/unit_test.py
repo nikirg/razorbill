@@ -247,40 +247,76 @@ class Base(DeclarativeBase):
 
 from razorbill.builder import builder_router
 
+#
+# class User(Base):
+#     __tablename__ = 'users'
+#
+#     id = Column(Integer, primary_key=True)
+#     telegram_id = Column(String, nullable=False)
+#     telegram_username = Column(String, nullable=False)
+#     project_id = Column(Integer, ForeignKey('projects.id'))
+#     project = relationship("Project", back_populates="users")
+#
+#
+# class Project(Base):
+#     __tablename__ = 'projects'
+#
+#     id = Column(Integer, primary_key=True)
+#     name = Column(String, nullable=False)
+#
+#     users = relationship("User", back_populates="project")
+#
+# class UserSchema(BaseModel):
+#     id: int
+#     telegram_id: str
+#     telegram_username: str
+#     project_id: int
+#
+# class ProjectSchema(BaseModel):
+#     id: int
+#     name: str
 
-class User(Base):
-    __tablename__ = 'users'
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-    id = Column(Integer, primary_key=True)
-    telegram_id = Column(String, nullable=False)
-    telegram_username = Column(String, nullable=False)
-    project_id = Column(Integer, ForeignKey('projects.id'))
-    project = relationship("Project", back_populates="users")
+from datetime import datetime
+
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.sql import func
+from sqlalchemy import DateTime
+
+
+class Base(DeclarativeBase):
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), onupdate=func.current_timestamp(), nullable=True
+    )
+
 
 
 class Project(Base):
-    __tablename__ = 'projects'
+    __tablename__ = "projects"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
+    name: Mapped[str] = mapped_column()
+    # cores: Mapped[list["Core"]] = relationship(back_populates="project")
+    # actions: Mapped[list["Action"]] = relationship(back_populates="project")
 
-    users = relationship("User", back_populates="project")
 
-class UserSchema(BaseModel):
-    id: int
-    telegram_id: str
-    telegram_username: str
-    project_id: int
+class Story(Base):
+    __tablename__ = "stories"
 
-class ProjectSchema(BaseModel):
-    id: int
-    name: str
+    name: Mapped[str] = mapped_column()
+
+    project: Mapped["Project"] = relationship(back_populates="stories")
 
 
 database_url = 'postgresql+asyncpg://razorbill:secret@localhost:5432/test'
 
 project_router = builder_router(alchemy_connector=True, url=database_url, model=Project)
-user_router = builder_router(alchemy_connector=True, url=database_url, model=User, parent_model=Project, parent_item_name='project')
+user_router = builder_router(alchemy_connector=True, url=database_url, model=Story, parent_model=Project, parent_item_name='project')
 
 # project_router = builder_router(schema=ProjectSchema)
 # user_router = builder_router(schema=UserSchema, parent_schema=ProjectSchema, parent_item_name='project')
@@ -334,3 +370,10 @@ app.include_router(user_router)
 #
 # router = Router(crud=user_crud)
 # app.include_router(router)
+
+
+
+# посмотреть как мы можем передавать все параметры по которым можно делать тестирование в get many
+# посмотреть как работает populate и выдавать схемы внешние get_many and get_one
+# сортировка в get many
+# переделать возвращаемый скл в дикт

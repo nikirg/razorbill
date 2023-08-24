@@ -1,5 +1,6 @@
 from enum import Enum
 from fastapi import APIRouter, Path, Depends
+from typing import Optional
 from razorbill.crud import CRUD
 from razorbill.deps import (
     build_exists_dependency,
@@ -51,6 +52,7 @@ class Router(APIRouter):
         self.pk = crud.connector.pk_name
         self.Schema = schema if schema is not None else crud.connector.schema
 
+
         self.create_schema = (
             create_schema
             if create_schema
@@ -61,14 +63,16 @@ class Router(APIRouter):
             if update_schema
             else self.create_schema
         )
-
+        self.parent_item_name=parent_item_name
         self.CreateSchema = self.create_schema
         self.UpdateSchema = self.update_schema
+
         self.overwrite_schema = overwrite_schema
         self.overwrite_create_schema = overwrite_create_schema
         self.overwrite_update_schema = overwrite_update_schema
 
         self._parent_id_dependency = Depends(empty_dependency)
+        # self._model_dependency = model_dependency(self.CreateSchema)
 
         if item_name is None:
             item_name = self.Schema.__name__
@@ -78,14 +82,15 @@ class Router(APIRouter):
         fields_to_exclude = ["id", "_id"]
 
         if parent_crud is not None:
-
             if parent_item_name is None:
-                parent_item_name = parent_crud.connector.schema.__name__
+                self.parent_item_name = parent_crud.connector.schema.__name__
             parent_item_tag, _, parent_item_path = build_path_elements(parent_item_name)
             self.CreateSchema = schema_factory(self.create_schema, parent_item_tag)
             self.UpdateSchema = schema_factory(self.update_schema, parent_item_tag, prefix='Update')
+
             parent_exists_dependency = build_exists_dependency(parent_crud, parent_item_tag)
             self._parent_id_dependency = build_last_parent_dependency(parent_item_tag)
+
             fields_to_exclude.append(parent_item_tag)
 
             if dependencies is not None:
@@ -100,7 +105,7 @@ class Router(APIRouter):
 
         if tags is None:
             tags = [self._schema_slug]
-
+        self.FilterSchema = schema_factory(self.CreateSchema, prefix='Filter', optional=True)
         item_tag, path, item_path = build_path_elements(item_name)
         self._path = path
         self._item_path = item_path
@@ -141,6 +146,7 @@ class Router(APIRouter):
         ) -> int:
             return await self.crud.count(parent)
 
+
     def _init_get_all_endpoint(self, deps: list[Callable] | bool):
         @self.get(
             self._path,
@@ -150,9 +156,13 @@ class Router(APIRouter):
         async def get_many(
                 pagination: tuple[str, int] = self._pagination_dependency,
                 parent: dict[str, int] = self._parent_id_dependency,
+                user_filter: self.FilterSchema = Depends(self.FilterSchema)
         ):
+            payload = user_filter.dict(exclude_none=True)
+            if parent is not None:
+                payload |= parent
             skip, limit = pagination
-            items = await self.crud.get_many(skip, limit, parent)
+            items = await self.crud.get_many(skip, limit, filters = payload)
             return items
 
     def _init_get_one_endpoint(self, deps: list[Callable] | bool):

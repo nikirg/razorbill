@@ -72,6 +72,7 @@ def build_pagination_dependency(max_limit: int | None = None) -> Depends:
 
 def init_deps(funcs: list[Callable] | bool) -> list[Depends]:
     if isinstance(funcs, list):
+        print([Depends(func) for func in funcs])
         return [Depends(func) for func in funcs]
     return []
 

@@ -43,8 +43,6 @@ class MemoryConnector(BaseConnector):
     async def get_one(self, obj_id: str | int, filters: dict[str, Any] | None = None) -> dict[str, Any] | None:
         obj = _inmemory_storage[self._schema.__name__].get(obj_id)
         if obj is not None:
-            print(obj)
-            print(filters)
             if filters:
                 matches_filters = all(obj.get(key) == value for key, value in filters.items())
                 if not matches_filters:

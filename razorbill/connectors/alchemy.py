@@ -7,7 +7,7 @@ from sqlalchemy import and_, func, update, insert
 import sqlalchemy
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.orm import class_mapper
+from sqlalchemy.orm import class_mapper, joinedload
 from sqlalchemy.future import select
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.declarative import DeclarativeMeta
@@ -67,13 +67,11 @@ class AsyncSQLAlchemyConnector(BaseConnector):
     ) -> dict[str, Any]:
         await self.init_model()
         sql_model = self.model(**obj)
-        #sql_model = self._pydantic_to_sqlalchemy(pydantic_obj=obj, sqlalchemy_model=self.model)
         async with self.session_maker.begin() as session:
             session.add(sql_model)
             try:
                 await session.commit()
                 created_sql_model = await session.merge(sql_model)
-                #return self.schema(**created_sql_model.__dict__)
                 return created_sql_model.__dict__
             except sqlalchemy.exc.IntegrityError as error:
                 raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
@@ -99,14 +97,15 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             skip: int,
             limit: int,
             filters: dict[str, Any] = {},
-            populate: list[Column] | None = None,
+            # populate: bool | list[str] | list[tuple[str, int]] = False,
+            populate: list[str] = None,
     ) -> list[dict[str, Any]]:
         await self.init_model()
         statement = select(self.model)
 
-        if populate is not None:
-            for field in populate:
-                statement = statement.join(field)
+        # if populate is not None:
+        #     for field in populate:
+        #         statement = statement.join(field)
         where = []
         if filters is not None:
             where = [getattr(self.model, key) == value for key, value in filters.items()]
@@ -115,15 +114,28 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         async with self.session_maker.begin() as session:
             query = await session.scalars(statement)
             items = query.all()
+        await self.init_model()
+        statement = select(self.model)
+
+
+        where = []
+        if filters:
+            where = [getattr(self.model, key) == value for key, value in filters.items()]
+        if not populate:
+            statement = statement.where(and_(True, *where)).offset(skip).limit(limit)
+
+            async with self.session_maker.begin() as session:
+                result = await session.execute(statement)
+                items = result.scalars().all()
 
         schemas = [item.__dict__ for item in items]
-
         return schemas
 
     async def get_one(
             self,
             obj_id: str | int,
             filters: dict[str, Any] = {},
+            populate: list[str] = None,
     ) -> dict[str, Any] | None:
 
         await self.init_model()
@@ -168,7 +180,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         except sqlalchemy.exc.IntegrityError as error:
             raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
 
-    async def delete_one(self, obj_id: str | int,  filters: dict[str, Any] = {}) -> bool:
+    async def delete_one(self, obj_id: str | int, filters: dict[str, Any] = {}) -> bool:
         await self.init_model()
         async with self.session_maker.begin() as session:
             statement = select(self.model).where(self.model.id == obj_id)
