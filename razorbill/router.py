@@ -72,7 +72,7 @@ class Router(APIRouter):
         self.overwrite_update_schema = overwrite_update_schema
 
         self._parent_id_dependency = Depends(empty_dependency)
-        # self._model_dependency = model_dependency(self.CreateSchema)
+
 
         if item_name is None:
             item_name = self.Schema.__name__
@@ -162,6 +162,9 @@ class Router(APIRouter):
                 populate_parent: bool = Query(default=False)
 
         ):
+
+            if self.parent_item_name is None:
+                populate_parent = None
             payload = user_filter.dict(exclude_none=True)
             if parent is not None:
                 payload |= parent
@@ -181,6 +184,8 @@ class Router(APIRouter):
                 parent: dict[str, int] = self._parent_id_dependency,
                 populate_parent: bool = Query(default=False)
         ):
+            if self.parent_item_name is None:
+                populate_parent= None
             item = await self.crud.get_one(item_id, parent, populate=populate_parent)
             if item:
                 return item
