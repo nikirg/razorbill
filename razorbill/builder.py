@@ -64,7 +64,7 @@ def builder_router(
         schema_slug: str | None = None,
         parent_schema: Type[BaseModel] | None = None,
         parent_model: Type[DeclarativeBase] | None = None,
-
+        filters: list[str] | None = None,
 ):
     crud = builder_crud(
         url=url,
@@ -104,5 +104,6 @@ def builder_router(
         overwrite_schema=overwrite_schema,
         overwrite_create_schema=overwrite_create_schema,
         overwrite_update_schema=overwrite_update_schema,
+        filters=filters
     )
     return router

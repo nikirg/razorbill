@@ -17,6 +17,7 @@ asyncpg = "^0.28.0"
 asyncpgsa = "^0.27.1"
 greenlet = "^2.0.2"
 uvicorn = "^0.23.2"
+fastapi-filter = "^0.6.1"
 
 
 [build-system]

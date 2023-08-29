@@ -20,12 +20,12 @@ class BaseConnector(ABC):
 
     @abstractmethod
     async def get_many(
-            self, skip: int, limit: int, filters: dict[str, Any] | None = None, populate: list[str] | None = None
+            self, skip: int, limit: int, filters: dict[str, Any] | None = None, populate: bool = False
     ) -> list[dict[str, Any]]:
         pass
 
     @abstractmethod
-    async def get_one(self, obj_id: str | int, filters: dict[str, Any] | None = None, populate: list[str] | None = None) -> dict[str, Any]:
+    async def get_one(self, obj_id: str | int, filters: dict[str, Any] | None = None, populate: bool = False) -> dict[str, Any]:
         pass
 
     @abstractmethod

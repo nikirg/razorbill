@@ -40,13 +40,33 @@ class MemoryConnector(BaseConnector):
                                all(obj.get(key) == value for key, value in filters.items())]
         return len(filtered_models)
 
-    async def get_one(self, obj_id: str | int, filters: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    async def get_one(self, obj_id: str | int, filters: dict[str, Any] | None = None, populate: list[str] = None, ) -> \
+    dict[str, Any] | None:
         obj = _inmemory_storage[self._schema.__name__].get(obj_id)
+        foreign_keys = {}
         if obj is not None:
             if filters:
                 matches_filters = all(obj.get(key) == value for key, value in filters.items())
                 if not matches_filters:
                     return None
+
+            if populate is not None:
+                for field in self._schema.__fields__:
+                    for fk in populate:
+                        parent_fk = fk.replace('Schema', '').lower() + '_id'
+                        parent_relationship = fk.replace('Schema', '').lower()
+                        if field == parent_fk:
+                            foreign_keys[fk] = {
+                                'parent_fk': fk.replace('Schema', '').lower() + '_id',
+                                'parent_relationship': parent_relationship
+                            }
+
+            for schema_name, parent in foreign_keys.items():
+                fk_value = obj.get(parent['parent_fk'])
+                parent_obj = _inmemory_storage[schema_name].get(fk_value)
+                if parent:
+                    del obj[parent['parent_fk']]
+                    obj[parent['parent_relationship']] = parent_obj
 
             return obj
         return None
@@ -59,6 +79,7 @@ class MemoryConnector(BaseConnector):
             populate: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         result = []
+        foreign_keys = {}
 
         for obj_id, obj in _inmemory_storage.get(self._schema.__name__, {}).items():
             matches_filters = True
@@ -70,10 +91,25 @@ class MemoryConnector(BaseConnector):
                         break
 
             if matches_filters:
+                if populate is not None:
+                    for field in self._schema.__fields__:
+                        for fk in populate:
+                            parent_fk = fk.replace('Schema','').lower() + '_id'
+                            parent_relationship = fk.replace('Schema','').lower()
+                            if field == parent_fk:
+                                foreign_keys[fk] = {
+                                    'parent_fk' :fk.replace('Schema','').lower() + '_id',
+                                    'parent_relationship': parent_relationship
+                                }
+
+                for schema_name, parent in foreign_keys.items():
+                    fk_value = obj.get(parent['parent_fk'])
+                    parent_obj = _inmemory_storage[schema_name].get(fk_value)
+                    if parent:
+                        del obj[parent['parent_fk']]
+                        obj[parent['parent_relationship']] = parent_obj
                 result.append(obj)
 
-        if populate is not None:
-            pass
 
         return result[skip: skip + limit]
 

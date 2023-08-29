@@ -11,6 +11,7 @@ from sqlalchemy.orm import class_mapper, joinedload
 from sqlalchemy.future import select
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.declarative import DeclarativeMeta
+
 from sqlalchemy.sql.schema import Column
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy import create_engine
@@ -97,62 +98,73 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             skip: int,
             limit: int,
             filters: dict[str, Any] = {},
-            # populate: bool | list[str] | list[tuple[str, int]] = False,
-            populate: list[str] = None,
+            populate: bool = False,
     ) -> list[dict[str, Any]]:
+
         await self.init_model()
         statement = select(self.model)
 
-        # if populate is not None:
-        #     for field in populate:
-        #         statement = statement.join(field)
-        where = []
-        if filters is not None:
-            where = [getattr(self.model, key) == value for key, value in filters.items()]
-        statement = statement.where(and_(True, *where)).offset(skip).limit(limit)
-
-        async with self.session_maker.begin() as session:
-            query = await session.scalars(statement)
-            items = query.all()
-        await self.init_model()
-        statement = select(self.model)
+        parent_relationships = []
+        parent_table_names = []
+        if populate:
+            for column in self.model.__mapper__.relationships:
+                parent_table_names.append(column.entity.class_.__table__)
+                parent_relationships.append(column.key)
 
 
         where = []
         if filters:
             where = [getattr(self.model, key) == value for key, value in filters.items()]
-        if not populate:
+        if not parent_relationships:
             statement = statement.where(and_(True, *where)).offset(skip).limit(limit)
 
             async with self.session_maker.begin() as session:
                 result = await session.execute(statement)
                 items = result.scalars().all()
+        else:
+            relationship_attrs = [getattr(self.model, field) for field in parent_relationships]
+            statement = statement.where(and_(True, *where)).options(
+                *[joinedload(attr) for attr in relationship_attrs]
+            ).offset(skip).limit(limit)
+            async with self.session_maker.begin() as session:
+                result = await session.execute(statement)
+                items = result.scalars().all()
 
-        schemas = [item.__dict__ for item in items]
-        return schemas
+        return [self._prepare_result(item, parent_relationships) for item in items]
 
     async def get_one(
             self,
             obj_id: str | int,
             filters: dict[str, Any] = {},
-            populate: list[str] = None,
+            populate: bool = False,
     ) -> dict[str, Any] | None:
-
         await self.init_model()
         statement = select(self.model)
+        parent_relationships = []
+        parent_table_names = []
+        if populate:
+            for column in self.model.__mapper__.relationships:
+                parent_table_names.append(column.entity.class_.__table__)
+                parent_relationships.append(column.key)
+
 
         statement = statement.where(self.model.id == obj_id)
         if filters:
             where = [getattr(self.model, key) == value for key, value in filters.items()]
             statement = statement.where(and_(True, *where))
-
+        if populate:
+            relationship_attrs = [getattr(self.model, field) for field in parent_relationships]
+            statement = statement.options(
+                *[joinedload(attr) for attr in relationship_attrs]
+            )
         async with self.session_maker.begin() as session:
             query = await session.execute(statement)
             try:
                 item = query.scalars().one_or_none()
             except NoResultFound:
                 item = None
-            return item.__dict__ if item else None
+
+        return self._prepare_result(item, parent_relationships) if item else None
 
     async def update_one(
             self, obj_id: str | int,
@@ -176,7 +188,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
                 await session.commit()
                 updated_obj = await self.get_one(obj_id)
 
-            return updated_obj if updated_obj else None
+            return updated_obj.__dict__ if updated_obj else None
         except sqlalchemy.exc.IntegrityError as error:
             raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
 
@@ -250,3 +262,15 @@ class AsyncSQLAlchemyConnector(BaseConnector):
 
         sqlalchemy_instance = sqlalchemy_model(**mapped_fields)
         return sqlalchemy_instance
+
+    @staticmethod
+    def _prepare_result(item, parent_relationships):
+        if item:
+            schema_dict = item.__dict__
+
+            for parent_model_name in parent_relationships:
+                parent_data = schema_dict.pop(parent_model_name)
+                parent_dict = parent_data.__dict__
+                schema_dict[parent_model_name] = parent_dict
+            return schema_dict
+        return None

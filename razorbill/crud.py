@@ -80,16 +80,17 @@ class CRUD:
     async def count(self, filters: dict[str, Any] = {}) -> int:
         return await self._connector.count(filters=filters)
 
-    async def get_one(self, obj_id: str | int, filters: dict[str, Any] = {}) -> dict[str, Any]:
+    async def get_one(self, obj_id: str | int, filters: dict[str, Any] = {}, populate: bool = False) -> dict[
+        str, Any]:
         if self._before_get_one_func is not None:
-            await self._before_get_one_func(obj_id, filters)
-        item = await self._connector.get_one(obj_id=obj_id, filters=filters)
+            await self._before_get_one_func(obj_id, filters, populate)
+        item = await self._connector.get_one(obj_id=obj_id, filters=filters, populate=populate)
         if self._after_get_one_func is not None:
             item = await self._after_get_one_func(item)
         return item
 
     async def get_many(self, skip: int, limit: int, filters: dict[str, Any] = {},
-                       populate: list[str] = [],
+                       populate: bool = False,
                        sorting: dict[str, tuple[Any, str]] = {}) -> list[dict[str, Any]]:
         _obj = None
         if self._before_get_many_func is not None:
