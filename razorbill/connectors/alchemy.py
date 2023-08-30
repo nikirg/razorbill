@@ -105,12 +105,14 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         statement = select(self.model)
 
         parent_relationships = []
-        parent_table_names = []
         if populate:
-            for column in self.model.__mapper__.relationships:
-                parent_table_names.append(column.entity.class_.__table__)
-                parent_relationships.append(column.key)
-
+            for column in self.model.__table__.columns:  # бежим по всем полям модели
+                for fk in column.foreign_keys:  # берем только те которые имеют внешний ключ
+                    for key, value in filters.items():  # проходимся по фильтрам чтобы вытащить название внешнего ключа
+                        if key == column.name:  # если внешний ключ с модели равен ключи с фильтра то проходим
+                            for column in self.model.__mapper__.relationships:  # бежим по всем полям с модели которые имеют relationships
+                                if fk.column.table == column.entity.class_.__table__:  # если название модели для внешнего ключа == названию модели с relationships
+                                    parent_relationships.append(column.key)  # то сохраняем его
 
         where = []
         if filters:
@@ -141,12 +143,15 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         await self.init_model()
         statement = select(self.model)
         parent_relationships = []
-        parent_table_names = []
         if populate:
-            for column in self.model.__mapper__.relationships:
-                parent_table_names.append(column.entity.class_.__table__)
-                parent_relationships.append(column.key)
-
+            if populate:
+                for column in self.model.__table__.columns:  # бежим по всем полям модели
+                    for fk in column.foreign_keys:  # берем только те которые имеют внешний ключ
+                        for key, value in filters.items():  # проходимся по фильтрам чтобы вытащить название внешнего ключа
+                            if key == column.name:  # если внешний ключ с модели равен ключи с фильтра то проходим
+                                for column in self.model.__mapper__.relationships:  # бежим по всем полям с модели которые имеют relationships
+                                    if fk.column.table == column.entity.class_.__table__:  # если название модели для внешнего ключа == названию модели с relationships
+                                        parent_relationships.append(column.key)  # то сохраняем его
 
         statement = statement.where(self.model.id == obj_id)
         if filters:

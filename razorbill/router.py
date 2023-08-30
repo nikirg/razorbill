@@ -192,7 +192,12 @@ class Router(APIRouter):
 
     def _init_create_one_endpoint(self, deps: list[Callable] | bool):
         @self.post(
-            self._path, response_model=self.Schema, dependencies=init_deps(deps)
+            self._path,
+            response_model=self.Schema,
+            dependencies=init_deps(deps),
+            response_model_exclude_none=True,
+            response_model_exclude_defaults=True,
+            response_model_exclude_unset=True
         )
         async def create_one(
                 body: self.CreateSchema,
@@ -209,6 +214,9 @@ class Router(APIRouter):
             self._item_path,
             response_model=self.Schema,
             dependencies=init_deps(deps),
+            response_model_exclude_none=True,
+            response_model_exclude_defaults=True,
+            response_model_exclude_unset=True
         )
         async def update_one(
                 *,
