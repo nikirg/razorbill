@@ -1,6 +1,6 @@
 from typing import Callable
 
-from fastapi import HTTPException, Depends, Path, Request
+from fastapi import HTTPException, Depends, Path, Request,Query
 from razorbill.crud import CRUD
 import re
 from razorbill.exceptions import NotFoundError
@@ -21,6 +21,7 @@ def build_exists_dependency(
     return Depends(dep)
 
 
+#TODO нужно ли тут возвращать словарь, надо подумать
 def build_last_parent_dependency(item_tag: str) -> Depends:
     """Зависимость, которая передает в endpoint id родителя (если он есть)"""
 
@@ -31,6 +32,16 @@ def build_last_parent_dependency(item_tag: str) -> Depends:
         return {item_tag: int(item_id)}
 
     return Depends(dep)
+
+
+def build_parent_populate_dependency() -> Depends:
+    async def dep(
+            populate_parent: bool = Query(None),
+    ):
+        return populate_parent
+
+    return Depends(dep)
+
 
 
 def build_pagination_dependency(max_limit: int | None = None) -> Depends:
@@ -72,7 +83,6 @@ def build_pagination_dependency(max_limit: int | None = None) -> Depends:
 
 def init_deps(funcs: list[Callable] | bool) -> list[Depends]:
     if isinstance(funcs, list):
-        print([Depends(func) for func in funcs])
         return [Depends(func) for func in funcs]
     return []
 

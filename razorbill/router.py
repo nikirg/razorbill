@@ -7,7 +7,8 @@ from razorbill.deps import (
     build_last_parent_dependency,
     build_pagination_dependency,
     build_path_elements,
-    init_deps
+    init_deps,
+    build_parent_populate_dependency,
 )
 from razorbill.exceptions import NotFoundError
 from typing import Callable, Type
@@ -72,7 +73,7 @@ class Router(APIRouter):
         self.overwrite_update_schema = overwrite_update_schema
 
         self._parent_id_dependency = Depends(empty_dependency)
-
+        self._parent_populate_dependency = Depends(empty_dependency)
 
         if item_name is None:
             item_name = self.Schema.__name__
@@ -90,6 +91,7 @@ class Router(APIRouter):
             self.Schema = parent_schema_factory(self.Schema, self.parent_item_name)
             parent_exists_dependency = build_exists_dependency(parent_crud, parent_item_tag)
             self._parent_id_dependency = build_last_parent_dependency(parent_item_tag)
+            self._parent_populate_dependency = build_parent_populate_dependency()
 
             fields_to_exclude.append(parent_item_tag)
 
@@ -113,7 +115,6 @@ class Router(APIRouter):
         self._path_field = Path(alias=item_tag) if path_item_parameter is None else path_item_parameter
 
         self._pagination_dependency = build_pagination_dependency(items_per_query)
-
         super().__init__(
             dependencies=dependencies,
             prefix=prefix,
@@ -153,18 +154,16 @@ class Router(APIRouter):
             self._path,
             response_model=list[self.Schema],
             dependencies=init_deps(deps),
-            response_model_exclude_none=True
+            response_model_exclude_none=True,
+            response_model_exclude_defaults=True,
+            response_model_exclude_unset=True
         )
         async def get_many(
                 pagination: tuple[str, int] = self._pagination_dependency,
                 parent: dict[str, int] = self._parent_id_dependency,
+                populate_parent: bool = self._parent_populate_dependency,
                 user_filter: self.FilterSchema = Depends(self.FilterSchema),
-                populate_parent: bool = Query(default=False)
-
         ):
-
-            if self.parent_item_name is None:
-                populate_parent = None
             payload = user_filter.dict(exclude_none=True)
             if parent is not None:
                 payload |= parent
@@ -177,15 +176,15 @@ class Router(APIRouter):
             self._item_path,
             response_model=self.Schema,
             dependencies=init_deps(deps),
-            response_model_exclude_none=True
+            response_model_exclude_none=True,
+            response_model_exclude_defaults=True,
+            response_model_exclude_unset=True
         )
         async def get_one(
                 item_id: int = self._path_field,
                 parent: dict[str, int] = self._parent_id_dependency,
-                populate_parent: bool = Query(default=False)
+                populate_parent: bool = self._parent_populate_dependency,
         ):
-            if self.parent_item_name is None:
-                populate_parent= None
             item = await self.crud.get_one(item_id, parent, populate=populate_parent)
             if item:
                 return item
