@@ -34,7 +34,6 @@ class AsyncSQLAlchemyConnector(BaseConnector):
     def pk_name(self) -> str:
         return self._pk_name
 
-
     async def create_one(
             self, obj: dict[str, Any]
     ) -> dict[str, Any]:
@@ -72,27 +71,25 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         statement = select(self.model)
 
         parent_relationships = []
+        where = []
+        if filters:
+            where = [getattr(self.model, key) == value for key, value in filters.items()]
         if populate:
             parent_relationships = _get_parent_relationships(self.model, filters)
             relationship_attrs = [getattr(self.model, field) for field in parent_relationships]
             statement = statement.options(
                 *[joinedload(attr) for attr in relationship_attrs]
             )
-
-        where = []
-        if filters:
-            where = [getattr(self.model, key) == value for key, value in filters.items()]
-        if not parent_relationships:
-            statement = statement.where(and_(True, *where)).offset(skip).limit(limit)
-
-            async with self.session_maker.begin() as session:
-                result = await session.execute(statement)
-                items = result.scalars().all()
-        else:
             relationship_attrs = [getattr(self.model, field) for field in parent_relationships]
             statement = statement.where(and_(True, *where)).options(
                 *[joinedload(attr) for attr in relationship_attrs]
             ).offset(skip).limit(limit)
+            async with self.session_maker.begin() as session:
+                result = await session.execute(statement)
+                items = result.scalars().all()
+        else:
+            statement = statement.where(and_(True, *where)).offset(skip).limit(limit)
+
             async with self.session_maker.begin() as session:
                 result = await session.execute(statement)
                 items = result.scalars().all()
@@ -107,6 +104,11 @@ class AsyncSQLAlchemyConnector(BaseConnector):
     ) -> dict[str, Any] | None:
         statement = select(self.model)
         parent_relationships = []
+        statement = statement.where(self.model.id == obj_id)
+
+        if filters:
+            where = [getattr(self.model, key) == value for key, value in filters.items()]
+            statement = statement.where(and_(True, *where))
 
         if populate:
             parent_relationships = _get_parent_relationships(self.model, filters)
@@ -114,12 +116,6 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             statement = statement.options(
                 *[joinedload(attr) for attr in relationship_attrs]
             )
-
-        statement = statement.where(self.model.id == obj_id)
-        if filters:
-            where = [getattr(self.model, key) == value for key, value in filters.items()]
-            statement = statement.where(and_(True, *where))
-        if populate:
             relationship_attrs = [getattr(self.model, field) for field in parent_relationships]
             statement = statement.options(
                 *[joinedload(attr) for attr in relationship_attrs]
@@ -174,4 +170,3 @@ class AsyncSQLAlchemyConnector(BaseConnector):
                 await session.commit()
                 return True
         return False
-
