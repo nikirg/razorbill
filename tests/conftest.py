@@ -2,7 +2,7 @@ import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 from ..razorbill.connectors.memory import MemoryConnector, _inmemory_storage
-from ..razorbill.connectors.alchemy import AsyncSQLAlchemyConnector
+from razorbill.connectors.alchemy.alchemy import AsyncSQLAlchemyConnector
 from os import environ
 import pytest
 from .schemas import UserSchema, ProjectSchema

@@ -1,12 +1,4 @@
 from fastapi import FastAPI
-from fastapi.openapi.docs import get_swagger_ui_html
-from typing import Type
-from pydantic import BaseModel
-from razorbill.crud import CRUD
-from razorbill.router import Router
-from razorbill.connectors.memory import MemoryConnector
-from razorbill.connectors.alchemy import AsyncSQLAlchemyConnector
-import asyncio
 
 app = FastAPI()
 
@@ -211,8 +203,6 @@ app = FastAPI()
 #
 # asyncio.run(test_create(print_flag=True))
 
-from sqlalchemy import Column, Integer, String, ForeignKey
-from sqlalchemy.orm import relationship
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -276,8 +266,7 @@ from razorbill.builder import builder_router
 #     id: int
 #     name: str
 
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import relationship
 
 from datetime import datetime
 

@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from razorbill.crud import CRUD
 from razorbill.router import Router
 from razorbill.connectors.memory import MemoryConnector
-from razorbill.connectors.alchemy import AsyncSQLAlchemyConnector
+from razorbill.connectors.alchemy.alchemy import AsyncSQLAlchemyConnector
 from sqlalchemy.orm import DeclarativeBase
 from enum import Enum
 from typing import Callable, Type
