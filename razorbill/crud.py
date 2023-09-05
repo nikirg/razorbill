@@ -91,13 +91,13 @@ class CRUD:
 
     async def get_many(self, skip: int, limit: int, filters: dict[str, Any] = {},
                        populate: bool = False,
-                       sorting: dict[str, tuple[Any, str]] = {}) -> list[dict[str, Any]]:
+                       sorting: dict[str, bool] = {}) -> list[dict[str, Any]]:
         _obj = None
         if self._before_get_many_func is not None:
             await self._before_get_many_func(skip, limit, filters, sorting, populate)
 
         items = await self._connector.get_many(skip=skip, limit=limit,
-                                               filters=filters, populate=populate)  # TODO, sorting=sorting)
+                                               filters=filters, populate=populate, sorting=sorting)
         if self._after_get_many_func is not None:
             items = await self._after_get_many_func(items)
         return items

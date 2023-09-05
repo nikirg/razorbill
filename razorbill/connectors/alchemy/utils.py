@@ -2,8 +2,11 @@ from typing import Any, Type, Container, Optional
 from sqlalchemy import inspect
 from sqlalchemy.orm import class_mapper, DeclarativeBase, ColumnProperty
 from sqlalchemy.ext.declarative import DeclarativeMeta
-from pydantic import BaseModel, create_model
-from razorbill.converter import OrmConfig
+from pydantic import BaseModel, create_model, BaseConfig
+
+
+class OrmConfig(BaseConfig):
+    orm_mode = True
 
 
 def _sqlalchemy_to_pydantic(

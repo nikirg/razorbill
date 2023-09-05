@@ -1,18 +1,18 @@
-from typing import Callable
-
-from fastapi import HTTPException, Depends, Path, Request,Query
+from fastapi import HTTPException, Depends, Path, Request, Query
 from razorbill.crud import CRUD
 import re
+from typing import Callable, Type
+from pydantic import BaseModel, Field
 from razorbill.exceptions import NotFoundError
 
 
 def build_exists_dependency(
-    crud: CRUD, item_tag: str
+        crud: CRUD, item_tag: str
 ) -> Depends:
     """Зависимость, которая берет id элемента из URL и проверяет есть ли данный элемент в базе"""
 
     async def dep(
-        item_id: int = Path(alias=item_tag),
+            item_id: int = Path(alias=item_tag),
     ):
         item = await crud.get_one(item_id)
         if item is None:
@@ -21,7 +21,7 @@ def build_exists_dependency(
     return Depends(dep)
 
 
-#TODO нужно ли тут возвращать словарь, надо подумать
+# TODO нужно ли тут возвращать словарь, надо подумать
 def build_last_parent_dependency(item_tag: str) -> Depends:
     """Зависимость, которая передает в endpoint id родителя (если он есть)"""
 
@@ -42,6 +42,18 @@ def build_parent_populate_dependency() -> Depends:
 
     return Depends(dep)
 
+
+def build_sorting_dependency(obj: Type[BaseModel]) -> Depends:
+    def get_sortable_fields():
+        return list(obj.__fields__.keys())
+
+    async def dep(
+            sort_field: str = Query(None, description="Field to sort by", enum=get_sortable_fields()),
+            sort_desc: bool = Query(None)
+    ):
+        return sort_field, sort_desc
+
+    return Depends(dep)
 
 
 def build_pagination_dependency(max_limit: int | None = None) -> Depends:
@@ -86,9 +98,11 @@ def init_deps(funcs: list[Callable] | bool) -> list[Depends]:
         return [Depends(func) for func in funcs]
     return []
 
+
 def camel_to_snake(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
 
 def build_path_elements(name: str) -> tuple[str, str, str]:
     """Создает строковые элементы URL"""

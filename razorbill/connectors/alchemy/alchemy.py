@@ -1,5 +1,5 @@
 from typing import Any, Type, Container, Optional
-from sqlalchemy import and_, func, update, inspect
+from sqlalchemy import and_, func, update, inspect, desc
 import sqlalchemy
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm import class_mapper, joinedload, DeclarativeBase, sessionmaker
@@ -67,6 +67,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             limit: int,
             filters: dict[str, Any] = {},
             populate: bool = False,
+            sorting: dict[str, bool] = None
     ) -> list[dict[str, Any]]:
         statement = select(self.model)
 
@@ -84,15 +85,23 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             statement = statement.where(and_(True, *where)).options(
                 *[joinedload(attr) for attr in relationship_attrs]
             ).offset(skip).limit(limit)
-            async with self.session_maker.begin() as session:
-                result = await session.execute(statement)
-                items = result.scalars().all()
+
         else:
             statement = statement.where(and_(True, *where)).offset(skip).limit(limit)
 
-            async with self.session_maker.begin() as session:
-                result = await session.execute(statement)
-                items = result.scalars().all()
+        if sorting:
+            for field, sort_desc in sorting.items():
+                sort_column = getattr(self.model, field)
+                if sort_desc:
+                    statement = statement.order_by(desc(sort_column))
+                else:
+                    statement = statement.order_by(sort_column)
+
+        async with self.session_maker.begin() as session:
+            result = await session.execute(statement)
+            items = result.scalars().all()
+
+
 
         return [_prepare_result(item, parent_relationships) for item in items]
 

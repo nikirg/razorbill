@@ -20,7 +20,8 @@ class BaseConnector(ABC):
 
     @abstractmethod
     async def get_many(
-            self, skip: int, limit: int, filters: dict[str, Any] | None = None, populate: bool = False
+            self, skip: int, limit: int, filters: dict[str, Any] | None = None, populate: bool = False,
+            sorting: dict[str, bool] | None = None
     ) -> list[dict[str, Any]]:
         pass
 

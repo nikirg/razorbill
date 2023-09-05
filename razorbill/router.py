@@ -1,5 +1,5 @@
 from enum import Enum
-from fastapi import APIRouter, Path, Depends, Query
+from fastapi import APIRouter, Path, Depends, Query, FastAPI
 from typing import Optional
 from razorbill.crud import CRUD
 from razorbill.deps import (
@@ -9,11 +9,18 @@ from razorbill.deps import (
     build_path_elements,
     init_deps,
     build_parent_populate_dependency,
+    build_sorting_dependency,
 )
 from razorbill.exceptions import NotFoundError
 from typing import Callable, Type
 from pydantic import BaseModel
-from razorbill.utils import get_slug_schema_name, schema_factory, validate_filters, parent_schema_factory
+from razorbill.utils import (
+    get_slug_schema_name,
+    schema_factory,
+    validate_filters,
+    parent_schema_factory,
+    create_schema_from_model_with_overwrite
+)
 
 
 def empty_dependency():
@@ -50,27 +57,34 @@ class Router(APIRouter):
     ):
         self.crud = crud
         self.pk = crud.connector.pk_name
-
-        self.Schema = schema if schema is not None else crud.connector.schema
-
-        self.filters = validate_filters(self.Schema, filters) if filters is not None else None
-        self.create_schema = (
-            create_schema
-            if create_schema
-            else schema_factory(self.Schema, pk_field_name=self.pk, prefix="Create")
-        )
-        self.update_schema = (
-            update_schema
-            if update_schema
-            else self.create_schema
-        )
-        self.parent_item_name = parent_item_name
-        self.CreateSchema = self.create_schema
-        self.UpdateSchema = self.update_schema
-
         self.overwrite_schema = overwrite_schema
         self.overwrite_create_schema = overwrite_create_schema
         self.overwrite_update_schema = overwrite_update_schema
+        self.Schema = schema if schema is not None else crud.connector.schema
+        self.filters = validate_filters(self.Schema, filters) if filters is not None else None # TODO нигде не используется
+        if create_schema:
+            self.create_schema = (
+                create_schema
+                if overwrite_create_schema
+                else create_schema_from_model_with_overwrite(self.Schema, create_schema, pk_field_name=self.pk,
+                                                             prefix="Create")
+            )
+        else:
+            self.create_schema = schema_factory(self.Schema, pk_field_name=self.pk)
+
+        if update_schema:
+            self.update_schema = (
+                schema_factory(self.Schema, pk_field_name=self.pk, prefix=prefix)
+                if overwrite_update_schema
+                else create_schema_from_model_with_overwrite(self.Schema, update_schema, pk_field_name=self.pk,
+                                                             prefix="")
+            )
+        else:
+            self.update_schema = schema_factory(self.Schema, pk_field_name=self.pk, prefix="Update")
+
+        self.parent_item_name = parent_item_name
+        self.CreateSchema = self.create_schema
+        self.UpdateSchema = self.update_schema
 
         self._parent_id_dependency = Depends(empty_dependency)
         self._parent_populate_dependency = Depends(empty_dependency)
@@ -81,7 +95,7 @@ class Router(APIRouter):
         if schema_slug is None:
             self._schema_slug = get_slug_schema_name(item_name)
         fields_to_exclude = ["id", "_id"]
-
+        self._sort_field_dependency = build_sorting_dependency(self.Schema)
         if parent_crud is not None:
             if parent_item_name is None:
                 self.parent_item_name = parent_crud.connector.schema.__name__
@@ -163,12 +177,16 @@ class Router(APIRouter):
                 parent: dict[str, int] = self._parent_id_dependency,
                 populate_parent: bool = self._parent_populate_dependency,
                 user_filter: self.FilterSchema = Depends(self.FilterSchema),
+                sorting: tuple[str, bool] = self._sort_field_dependency,
         ):
             payload = user_filter.dict(exclude_none=True)
             if parent is not None:
                 payload |= parent
             skip, limit = pagination
-            items = await self.crud.get_many(skip, limit, filters=payload, populate=populate_parent)
+
+            sort_field, sort_desc = sorting
+            sorting = {sort_field: sort_desc} if sort_field else None
+            items = await self.crud.get_many(skip, limit, filters=payload, populate=populate_parent, sorting=sorting)
             return items
 
     def _init_get_one_endpoint(self, deps: list[Callable] | bool):
@@ -192,6 +210,7 @@ class Router(APIRouter):
 
     def _init_create_one_endpoint(self, deps: list[Callable] | bool):
         @self.post(
+
             self._path,
             response_model=self.Schema,
             dependencies=init_deps(deps),
