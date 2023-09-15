@@ -2,7 +2,6 @@ from typing import Any, Type, Callable
 from pydantic import validate_arguments
 from razorbill.connectors.base import BaseConnector
 
-
 class CRUD:
     def __init__(
             self,

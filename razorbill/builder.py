@@ -3,9 +3,10 @@ from razorbill.crud import CRUD
 from razorbill.router import Router
 from razorbill.connectors.memory import MemoryConnector
 from razorbill.connectors.alchemy.alchemy import AsyncSQLAlchemyConnector
+from razorbill.connectors.mongo.mongo import AsyncMongoConnector
 from sqlalchemy.orm import DeclarativeBase
 from enum import Enum
-from typing import Callable, Type
+from typing import Callable, Type, Any
 from fastapi import Path, Depends
 
 
@@ -14,8 +15,10 @@ def builder_crud(
         schema: Type[BaseModel] | None = None,
         model: Type[DeclarativeBase] | None = None,
         memory_connector: bool | None = True,
+        mongo_connector:bool | None = True,
         alchemy_connector: bool | None = False,
         pk: str | None = "id",
+        session_maker: Any | None = None
 ):
     if alchemy_connector:
         if not url or not model:
@@ -23,7 +26,16 @@ def builder_crud(
         connector = AsyncSQLAlchemyConnector(
             model=model,
             url=url,
+            pk_name=pk,
+            session_maker=session_maker)
+    elif mongo_connector:
+        if not url or not schema:
+            return None
+        connector = AsyncMongoConnector(
+            model=schema,
+            url=url,
             pk_name=pk)
+
     else:
         if schema is None:
             return None
@@ -42,6 +54,7 @@ def builder_router(
         model: Type[DeclarativeBase] | None = None,
         memory_connector: bool | None = True,
         alchemy_connector: bool | None = False,
+        mongo_connector: bool | None = False,
         create_schema: Type[BaseModel] | None = None,
         update_schema: Type[BaseModel] | None = None,
         overwrite_schema: bool = False,
@@ -65,6 +78,7 @@ def builder_router(
         parent_schema: Type[BaseModel] | None = None,
         parent_model: Type[DeclarativeBase] | None = None,
         filters: list[str] | None = None,
+        session_maker: Any | None = None
 ):
     crud = builder_crud(
         url=url,
@@ -72,7 +86,9 @@ def builder_router(
         model=model,
         memory_connector=memory_connector,
         alchemy_connector=alchemy_connector,
+        mongo_connector=mongo_connector,
         pk=pk,
+        session_maker=session_maker,
     )
     parent_crud = builder_crud(
         url=url,
@@ -81,6 +97,7 @@ def builder_router(
         memory_connector=memory_connector,
         alchemy_connector=alchemy_connector,
         pk=parent_item_name,
+        session_maker=session_maker,
     )
     router = Router(
         crud,

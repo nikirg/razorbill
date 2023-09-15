@@ -12,7 +12,7 @@ def build_exists_dependency(
     """Зависимость, которая берет id элемента из URL и проверяет есть ли данный элемент в базе"""
 
     async def dep(
-            item_id: int = Path(alias=item_tag),
+            item_id: int | str = Path(alias=item_tag),
     ):
         item = await crud.get_one(item_id)
         if item is None:
@@ -29,7 +29,7 @@ def build_last_parent_dependency(item_tag: str) -> Depends:
         item_id = request.path_params.get(item_tag)
         if item_id is None:
             return {}
-        return {item_tag: int(item_id)}
+        return {item_tag: str(item_id)}
 
     return Depends(dep)
 

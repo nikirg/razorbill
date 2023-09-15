@@ -31,13 +31,13 @@ def create_schema_from_model_with_overwrite(
 
 def parent_schema_factory(schema_cls: Type[T], pk_field_name: str) -> Type[T]:
     fields = {
-        f.name: (f.type_, ...)
+        f.name: (f.type_, ... if f.required else None)
         for f in schema_cls.__fields__.values()
     }
     fields[pk_field_name] = (dict[str, Any], Field(None))
-
     name = schema_cls.__name__
-    schema: Type[T] = create_model(__model_name=name, **fields)  # type: ignore
+    config = getattr(schema_cls, "__config__", None)
+    schema: Type[T] = create_model(__model_name=name, **fields, __config__=config)  # type: ignore
     return schema
 
 

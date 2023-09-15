@@ -19,10 +19,14 @@ class AsyncSQLAlchemyConnectorException(Exception):
 
 class AsyncSQLAlchemyConnector(BaseConnector):
     @validate_arguments
-    def __init__(self, url: str, model: Type[DeclarativeBase], pk_name: str = "id", **kwargs) -> None:
+    def __init__(self, url: str, model: Type[DeclarativeBase], session_maker: Any = None,
+                 pk_name: str = "id", **kwargs) -> None:
         self.model = model
-        self.engine = create_async_engine(url, **kwargs)
-        self.session_maker = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
+        if session_maker is None:
+            self.engine = create_async_engine(url, **kwargs)
+            self.session_maker = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
+        else:
+            self.session_maker = session_maker
         self._schema = _sqlalchemy_to_pydantic(self.model)
         self._pk_name = pk_name
 
@@ -100,8 +104,6 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         async with self.session_maker.begin() as session:
             result = await session.execute(statement)
             items = result.scalars().all()
-
-
 
         return [_prepare_result(item, parent_relationships) for item in items]
 

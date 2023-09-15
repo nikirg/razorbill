@@ -61,7 +61,9 @@ class Router(APIRouter):
         self.overwrite_create_schema = overwrite_create_schema
         self.overwrite_update_schema = overwrite_update_schema
         self.Schema = schema if schema is not None else crud.connector.schema
-        self.filters = validate_filters(self.Schema, filters) if filters is not None else None # TODO нигде не используется
+
+        self.filters = validate_filters(self.Schema,
+                                        filters) if filters is not None else None  # TODO нигде не используется
         if create_schema:
             self.create_schema = (
                 create_schema
@@ -71,7 +73,6 @@ class Router(APIRouter):
             )
         else:
             self.create_schema = schema_factory(self.Schema, pk_field_name=self.pk)
-
         if update_schema:
             self.update_schema = (
                 schema_factory(self.Schema, pk_field_name=self.pk, prefix=prefix)
@@ -102,6 +103,7 @@ class Router(APIRouter):
             parent_item_tag, _, parent_item_path = build_path_elements(self.parent_item_name)
             self.CreateSchema = schema_factory(self.create_schema, parent_item_tag)
             self.UpdateSchema = schema_factory(self.update_schema, parent_item_tag, prefix='Update')
+
             self.Schema = parent_schema_factory(self.Schema, self.parent_item_name)
             parent_exists_dependency = build_exists_dependency(parent_crud, parent_item_tag)
             self._parent_id_dependency = build_last_parent_dependency(parent_item_tag)
@@ -118,10 +120,8 @@ class Router(APIRouter):
                 prefix = parent_item_path
             else:
                 prefix += parent_item_path
-
         if tags is None:
             tags = [self._schema_slug]
-
         self.FilterSchema = schema_factory(self.CreateSchema, prefix='Filter', filters=filters)
         item_tag, path, item_path = build_path_elements(item_name)
         self._path = path
@@ -159,8 +159,12 @@ class Router(APIRouter):
         )
         async def count(
                 parent: dict[str, int] = self._parent_id_dependency,
+                user_filter: self.FilterSchema = Depends(self.FilterSchema),
         ) -> int:
-            return await self.crud.count(parent)
+            payload = user_filter.dict(exclude_none=True)
+            if parent is not None:
+                payload |= parent
+            return await self.crud.count(payload)
 
     def _init_get_all_endpoint(self, deps: list[Callable] | bool):
 
@@ -199,7 +203,7 @@ class Router(APIRouter):
             response_model_exclude_unset=True
         )
         async def get_one(
-                item_id: int = self._path_field,
+                item_id: int | str = self._path_field,
                 parent: dict[str, int] = self._parent_id_dependency,
                 populate_parent: bool = self._parent_populate_dependency,
         ):
@@ -240,7 +244,7 @@ class Router(APIRouter):
         async def update_one(
                 *,
                 parent: dict[str, int] = self._parent_id_dependency,
-                item_id: int = self._path_field,
+                item_id: int | str = self._path_field,
                 body: self.UpdateSchema,
         ):
             payload = body.dict(exclude_unset=True)
@@ -256,7 +260,7 @@ class Router(APIRouter):
         @self.delete(self._item_path, dependencies=init_deps(deps))
         async def delete_one(
                 parent: dict[str, int] = self._parent_id_dependency,
-                item_id: int = self._path_field,
+                item_id: int | str = self._path_field,
         ):
             if not await self.crud.delete(item_id, parent):
                 raise NotFoundError(self.Schema.__name__, self._path_field.alias, item_id)
