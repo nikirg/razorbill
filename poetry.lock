@@ -204,27 +204,6 @@ typing-extensions = ">=4.5.0"
 all = ["email-validator (>=2.0.0)", "httpx (>=0.23.0)", "itsdangerous (>=1.1.0)", "jinja2 (>=2.11.2)", "orjson (>=3.2.1)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.5)", "pyyaml (>=5.3.1)", "ujson (>=4.0.1,!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0)", "uvicorn[standard] (>=0.12.0)"]
 
 [[package]]
-name = "fastapi-filter"
-version = "0.6.2"
-description = "FastAPI filter"
-category = "main"
-optional = false
-python-versions = ">=3.8,<4.0"
-files = [
-    {file = "fastapi_filter-0.6.2-py3-none-any.whl", hash = "sha256:084da833ec3ef80c928e9c5c55c2af641cea45a25f5b76953b8a59ed5839ae86"},
-    {file = "fastapi_filter-0.6.2.tar.gz", hash = "sha256:f9c1084822f0473458ef67b0c1b4c0a10e49e8b3216cb910d67bbb4f009f345e"},
-]
-
-[package.dependencies]
-fastapi = ">=0.78,<1.0"
-pydantic = ">=1.10.0,<2.0.0"
-
-[package.extras]
-all = ["SQLAlchemy (>=1.4.36,<2.1.0)", "mongoengine (>=0.24.1,<0.28.0)"]
-mongoengine = ["mongoengine (>=0.24.1,<0.28.0)"]
-sqlalchemy = ["SQLAlchemy (>=1.4.36,<2.1.0)"]
-
-[[package]]
 name = "greenlet"
 version = "2.0.2"
 description = "Lightweight in-process concurrent programming"
@@ -950,4 +929,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "a03df3ae3e6129f22d21ee927cc52dc8457defe23abf05c62453a75f39a99b30"
+content-hash = "c74c52b5a8b7f44bdec5119fc6d91595c57b2c85d75b1eee0b9b3b0c9346ebf1"
