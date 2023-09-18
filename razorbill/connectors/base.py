@@ -15,6 +15,10 @@ class BaseConnector(ABC):
         pass
 
     @abstractmethod
+    def type_pk(self) -> Type[Any]:
+        pass
+
+    @abstractmethod
     async def count(self, filters: dict[str, Any] | None = None) -> int:
         pass
 

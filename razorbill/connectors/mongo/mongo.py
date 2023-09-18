@@ -45,6 +45,10 @@ class AsyncMongoConnector(BaseConnector):
     def schema(self) -> Type[BaseModel]:
         return self._schema
 
+    @property
+    def type_pk(self) -> Type[str]:
+        return str
+
     async def init_beanie(self):
         await init_beanie(database=self.client[self.db_name], document_models=[self.document_schema])
         self.initialized = True

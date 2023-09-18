@@ -38,6 +38,10 @@ class AsyncSQLAlchemyConnector(BaseConnector):
     def pk_name(self) -> str:
         return self._pk_name
 
+    @property
+    def type_pk(self) -> Type[int]:
+        return int
+
     async def create_one(
             self, obj: dict[str, Any]
     ) -> dict[str, Any]:

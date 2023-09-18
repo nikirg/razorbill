@@ -106,7 +106,7 @@ class Router(APIRouter):
 
             self.Schema = parent_schema_factory(self.Schema, self.parent_item_name)
             parent_exists_dependency = build_exists_dependency(parent_crud, parent_item_tag)
-            self._parent_id_dependency = build_last_parent_dependency(parent_item_tag)
+            self._parent_id_dependency = build_last_parent_dependency(parent_item_tag, crud.connector.type_pk)
             self._parent_populate_dependency = build_parent_populate_dependency()
 
             fields_to_exclude.append(parent_item_tag)

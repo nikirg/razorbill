@@ -22,14 +22,14 @@ def build_exists_dependency(
 
 
 # TODO нужно ли тут возвращать словарь, надо подумать
-def build_last_parent_dependency(item_tag: str) -> Depends:
+def build_last_parent_dependency(item_tag: str, type_pk: Type[str | int]) -> Depends:
     """Зависимость, которая передает в endpoint id родителя (если он есть)"""
 
     async def dep(request: Request):
         item_id = request.path_params.get(item_tag)
         if item_id is None:
             return {}
-        return {item_tag: str(item_id)}
+        return {item_tag: type_pk(item_id)}
 
     return Depends(dep)
 
