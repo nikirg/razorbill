@@ -10,7 +10,8 @@ from pydantic import BaseModel, create_model
 from pydantic import validate_arguments
 
 from razorbill.connectors.base import BaseConnector
-from razorbill.connectors.alchemy.utils import _sqlalchemy_to_pydantic, _prepare_result, _get_parent_relationships
+from razorbill.connectors.alchemy.utils import _sqlalchemy_to_pydantic, _prepare_result, _get_parent_relationships, \
+    _object_to_dict
 
 
 class AsyncSQLAlchemyConnectorException(Exception):
@@ -51,7 +52,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             try:
                 await session.commit()
                 created_sql_model = await session.merge(sql_model)
-                return created_sql_model.__dict__
+                return _object_to_dict(created_sql_model)
             except sqlalchemy.exc.IntegrityError as error:
                 raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists")
 

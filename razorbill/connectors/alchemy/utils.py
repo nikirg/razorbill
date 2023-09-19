@@ -64,11 +64,11 @@ def _pydantic_to_sqlalchemy(pydantic_obj: BaseModel, sqlalchemy_model: Declarati
 
 def _prepare_result(item, parent_relationships):
     if item:
-        schema_dict = item.__dict__
+        schema_dict = _object_to_dict(item)
 
         for parent_model_name in parent_relationships:
             parent_data = schema_dict.pop(parent_model_name)
-            parent_dict = parent_data.__dict__
+            parent_dict = _object_to_dict(parent_data)
             schema_dict[parent_model_name] = parent_dict
         return schema_dict
     return None
@@ -84,3 +84,9 @@ def _get_parent_relationships(model: Type[DeclarativeBase], filters: dict[str, A
                         if fk.column.table == rel.entity.class_.__table__:
                             parent_relationships.append(rel.key)
     return parent_relationships
+
+
+def _object_to_dict(obj: Type[DeclarativeBase]) -> dict[str, Any]:
+    mapper = class_mapper(obj.__class__)
+    columns = [column.key for column in mapper.columns]
+    return {column: getattr(obj, column) for column in columns}
