@@ -64,13 +64,14 @@ def _pydantic_to_sqlalchemy(pydantic_obj: BaseModel, sqlalchemy_model: Declarati
 
 def _prepare_result(item, parent_relationships):
     if item:
-        schema_dict = _object_to_dict(item)
 
+        schema_dict = item.__dict__
+        result_dict = _object_to_dict(item)
         for parent_model_name in parent_relationships:
             parent_data = schema_dict.pop(parent_model_name)
             parent_dict = _object_to_dict(parent_data)
-            schema_dict[parent_model_name] = parent_dict
-        return schema_dict
+            result_dict[parent_model_name] = parent_dict
+        return result_dict
     return None
 
 
