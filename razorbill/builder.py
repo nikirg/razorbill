@@ -78,7 +78,9 @@ def builder_router(
         parent_schema: Type[BaseModel] | None = None,
         parent_model: Type[DeclarativeBase] | None = None,
         filters: list[str] | None = None,
-        session_maker: Any | None = None
+        session_maker: Any | None = None,
+        exclude_from_create_schema: list[str] = [],
+        exclude_from_update_schema: list[str] = [],
 ):
     crud = builder_crud(
         url=url,
@@ -121,6 +123,8 @@ def builder_router(
         overwrite_schema=overwrite_schema,
         overwrite_create_schema=overwrite_create_schema,
         overwrite_update_schema=overwrite_update_schema,
-        filters=filters
+        filters=filters,
+        exclude_from_create_schema=exclude_from_create_schema,
+        exclude_from_update_schema=exclude_from_update_schema
     )
     return router

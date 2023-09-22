@@ -42,7 +42,7 @@ def parent_schema_factory(schema_cls: Type[T], pk_field_name: str) -> Type[T]:
 
 
 def schema_factory(
-        schema_cls: Type[T], pk_field_name: str = "_id", prefix: str = "Create", filters: list[str] = None
+        schema_cls: Type[T], exclude_fields: list = list["_id"], prefix: str = "Create", filters: list[str] = None
 ) -> Type[T]:
     if filters is None:
         if prefix == 'Filter':
@@ -51,13 +51,13 @@ def schema_factory(
             fields = {
                 f.name: (f.type_, ... if f.required else None)
                 for f in schema_cls.__fields__.values()
-                if f.name != pk_field_name
+                if f.name not in exclude_fields
             }
     else:
         fields = {
             f.name: (f.type_, Field(None))
             for f in schema_cls.__fields__.values()
-            if f.name != pk_field_name and f.name in filters
+            if f.name not in exclude_fields and f.name in filters
         }
 
     name = prefix + schema_cls.__name__

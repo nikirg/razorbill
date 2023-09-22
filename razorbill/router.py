@@ -53,6 +53,8 @@ class Router(APIRouter):
             overwrite_schema: bool = False,
             overwrite_create_schema: bool = False,
             overwrite_update_schema: bool = False,
+            exclude_from_create_schema: list[str] = [],
+            exclude_from_update_schema: list[str] = [],
             **kwargs,
     ):
         self.crud = crud
@@ -61,7 +63,8 @@ class Router(APIRouter):
         self.overwrite_create_schema = overwrite_create_schema
         self.overwrite_update_schema = overwrite_update_schema
         self.Schema = schema if schema is not None else crud.connector.schema
-
+        self.exclude_from_create_schema = exclude_from_create_schema
+        self.exclude_from_update_schema = exclude_from_update_schema
         self.filters = validate_filters(self.Schema,
                                         filters) if filters is not None else None  # TODO нигде не используется
         if create_schema:
@@ -72,16 +75,16 @@ class Router(APIRouter):
                                                              prefix="Create")
             )
         else:
-            self.create_schema = schema_factory(self.Schema, pk_field_name=self.pk)
+            self.create_schema = schema_factory(self.Schema, self.exclude_from_create_schema + [self.pk])
         if update_schema:
             self.update_schema = (
-                schema_factory(self.Schema, pk_field_name=self.pk, prefix=prefix)
+                update_schema
                 if overwrite_update_schema
                 else create_schema_from_model_with_overwrite(self.Schema, update_schema, pk_field_name=self.pk,
                                                              prefix="")
             )
         else:
-            self.update_schema = schema_factory(self.Schema, pk_field_name=self.pk, prefix="Update")
+            self.update_schema = schema_factory(self.Schema, self.exclude_from_update_schema + [self.pk], prefix="Update")
 
         self.parent_item_name = parent_item_name
         self.CreateSchema = self.create_schema
@@ -101,8 +104,8 @@ class Router(APIRouter):
             if parent_item_name is None:
                 self.parent_item_name = parent_crud.connector.schema.__name__
             parent_item_tag, _, parent_item_path = build_path_elements(self.parent_item_name)
-            self.CreateSchema = schema_factory(self.create_schema, parent_item_tag)
-            self.UpdateSchema = schema_factory(self.update_schema, parent_item_tag, prefix='Update')
+            self.CreateSchema = schema_factory(self.create_schema, self.exclude_from_create_schema + [parent_item_tag])
+            self.UpdateSchema = schema_factory(self.update_schema, self.exclude_from_update_schema + [parent_item_tag], prefix='Update')
 
             self.Schema = parent_schema_factory(self.Schema, self.parent_item_name)
             parent_exists_dependency = build_exists_dependency(parent_crud, parent_item_tag)
