@@ -30,7 +30,7 @@ class BaseConnector(ABC):
         pass
 
     @abstractmethod
-    async def get_one(self, obj_id: str | int, filters: dict[str, Any] | None = None, populate: bool = False) -> dict[str, Any]:
+    async def get_one(self, obj_id: str | int, populate: bool | str = False) -> dict[str, Any]:
         pass
 
     @abstractmethod
@@ -39,10 +39,9 @@ class BaseConnector(ABC):
 
     @abstractmethod
     async def update_one(
-            self, obj_id: str | int, obj: dict[str, Any], filters: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+            self, obj_id: str | int, obj: dict[str, Any]) -> dict[str, Any]:
         pass
 
     @abstractmethod
-    async def delete_one(self, obj_id: str | int, filters: dict[str, Any] | None = None) -> bool:
+    async def delete_one(self, obj_id: str | int) -> bool:
         pass

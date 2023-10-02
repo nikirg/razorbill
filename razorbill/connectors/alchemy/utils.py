@@ -75,11 +75,11 @@ def _prepare_result(item, parent_relationships):
     return None
 
 
-def _get_parent_relationships(model: Type[DeclarativeBase], filters: dict[str, Any]) -> list[str]:
+def _get_parent_relationships(model: Type[DeclarativeBase], parent_name: [str]) -> list[str]:
     parent_relationships = []
     for column in model.__table__.columns:
         for fk in column.foreign_keys:
-            for key, value in filters.items():
+            for key in parent_name:
                 if key == column.name:
                     for rel in model.__mapper__.relationships:
                         if fk.column.table == rel.entity.class_.__table__:

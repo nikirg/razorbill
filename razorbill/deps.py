@@ -18,7 +18,7 @@ def build_exists_dependency(
         if item is None:
             raise NotFoundError(crud.connector.schema.__name__, item_tag, item_id)
 
-    return Depends(dep)
+    return dep
 
 
 # TODO нужно ли тут возвращать словарь, надо подумать
@@ -36,7 +36,7 @@ def build_last_parent_dependency(item_tag: str, type_pk: Type[str | int]) -> Dep
 
 def build_parent_populate_dependency() -> Depends:
     async def dep(
-            populate_parent: bool = Query(None),
+            populate_parent: bool | str = Query(False),
     ):
         return populate_parent
 

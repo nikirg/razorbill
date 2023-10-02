@@ -57,7 +57,9 @@ class Router(APIRouter):
             exclude_from_update_schema: list[str] = [],
             **kwargs,
     ):
+        self.parent_prefix = ''
         self.crud = crud
+        self.parent_dependencies = dependencies
         self.pk = crud.connector.pk_name
         self.overwrite_schema = overwrite_schema
         self.overwrite_create_schema = overwrite_create_schema
@@ -113,25 +115,27 @@ class Router(APIRouter):
             self._parent_populate_dependency = build_parent_populate_dependency()
 
             fields_to_exclude.append(parent_item_tag)
-
             if dependencies is not None:
-                dependencies.append(parent_exists_dependency)
+                self.parent_dependencies.append(parent_exists_dependency)
             else:
-                dependencies = [parent_exists_dependency]
+                self.parent_dependencies = [parent_exists_dependency]
 
             if prefix is None:
-                prefix = parent_item_path
+                self.parent_prefix = parent_item_path
             else:
-                prefix += parent_item_path
+                self.parent_prefix += parent_item_path
+
         if tags is None:
             tags = [self._schema_slug]
+
         self.FilterSchema = schema_factory(self.CreateSchema, prefix='Filter', filters=filters)
         item_tag, path, item_path = build_path_elements(item_name)
         self._path = path
+        #self._path_without_parent = path
         self._item_path = item_path
         self._path_field = Path(alias=item_tag) if path_item_parameter is None else path_item_parameter
-
         self._pagination_dependency = build_pagination_dependency(items_per_query)
+
         super().__init__(
             dependencies=dependencies,
             prefix=prefix,
@@ -139,16 +143,16 @@ class Router(APIRouter):
             **kwargs
         )
         if count_endpoint:
-            self._init_count_endpoint(count_endpoint)
+            self._init_count_endpoint(self.parent_dependencies if self.parent_dependencies is not None else None)
 
         if get_all_endpoint:
-            self._init_get_all_endpoint(get_all_endpoint)
+            self._init_get_all_endpoint(self.parent_dependencies if self.parent_dependencies is not None else None)
 
         if get_one_endpoint:
             self._init_get_one_endpoint(get_one_endpoint)
 
         if create_one_endpoint:
-            self._init_create_one_endpoint(create_one_endpoint)
+            self._init_create_one_endpoint(self.parent_dependencies if self.parent_dependencies is not None else None)
 
         if update_one_endpoint:
             self._init_update_one_endpoint(update_one_endpoint)
@@ -158,7 +162,7 @@ class Router(APIRouter):
 
     def _init_count_endpoint(self, deps: list[Callable] | bool):
         @self.get(
-            self._path + "count", response_model=int, dependencies=init_deps(deps)
+            self.parent_prefix + self._path + "count", response_model=int, dependencies=init_deps(deps)
         )
         async def count(
                 parent: dict[str, int] = self._parent_id_dependency,
@@ -172,7 +176,7 @@ class Router(APIRouter):
     def _init_get_all_endpoint(self, deps: list[Callable] | bool):
 
         @self.get(
-            self._path,
+            self.parent_prefix + self._path,
             response_model=list[self.Schema],
             dependencies=init_deps(deps),
             response_model_exclude_none=True,
@@ -196,29 +200,10 @@ class Router(APIRouter):
             items = await self.crud.get_many(skip, limit, filters=payload, populate=populate_parent, sorting=sorting)
             return items
 
-    def _init_get_one_endpoint(self, deps: list[Callable] | bool):
-        @self.get(
-            self._item_path,
-            response_model=self.Schema,
-            dependencies=init_deps(deps),
-            response_model_exclude_none=True,
-            response_model_exclude_defaults=True,
-            response_model_exclude_unset=True
-        )
-        async def get_one(
-                item_id: int | str = self._path_field,
-                parent: dict[str, int] = self._parent_id_dependency,
-                populate_parent: bool = self._parent_populate_dependency,
-        ):
-            item = await self.crud.get_one(item_id, parent, populate=populate_parent)
-            if item:
-                return item
-            raise NotFoundError(self.Schema.__name__, self._path_field.alias, item_id)
-
     def _init_create_one_endpoint(self, deps: list[Callable] | bool):
         @self.post(
 
-            self._path,
+            self.parent_prefix + self._path,
             response_model=self.Schema,
             dependencies=init_deps(deps),
             response_model_exclude_none=True,
@@ -234,6 +219,31 @@ class Router(APIRouter):
                 payload = body.dict() | parent
             item = await self.crud.create(payload)
             return item
+
+
+
+
+
+    def _init_get_one_endpoint(self, deps: list[Callable] | bool):
+        @self.get(
+            self._item_path,
+            response_model=self.Schema,
+            dependencies=init_deps(deps),
+            response_model_exclude_none=True,
+            response_model_exclude_defaults=True,
+            response_model_exclude_unset=True
+        )
+        async def get_one(
+                item_id: int | str = self._path_field,
+                #parent: dict[str, int] = self._parent_id_dependency,
+                populate_parent: bool | str = self._parent_populate_dependency,
+        ):
+            #item = await self.crud.get_one(item_id, parent, populate=populate_parent)
+            item = await self.crud.get_one(item_id, populate=populate_parent)
+            if item:
+                return item
+            raise NotFoundError(self.Schema.__name__, self._path_field.alias, item_id)
+
 
     def _init_update_one_endpoint(self, deps: list[Callable] | bool):
         @self.put(

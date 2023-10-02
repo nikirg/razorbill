@@ -79,11 +79,11 @@ class CRUD:
     async def count(self, filters: dict[str, Any] = {}) -> int:
         return await self._connector.count(filters=filters)
 
-    async def get_one(self, obj_id: str | int, filters: dict[str, Any] = {}, populate: bool = False) -> dict[
+    async def get_one(self, obj_id: str | int,  populate: bool = False) -> dict[
         str, Any]:
         if self._before_get_one_func is not None:
-            await self._before_get_one_func(obj_id, filters, populate)
-        item = await self._connector.get_one(obj_id=obj_id, filters=filters, populate=populate)
+            await self._before_get_one_func(obj_id, populate)
+        item = await self._connector.get_one(obj_id=obj_id, populate=populate)
         if self._after_get_one_func is not None:
             item = await self._after_get_one_func(item)
         return item
@@ -112,27 +112,26 @@ class CRUD:
             modified_record = await self._after_create_func(record)
             if modified_record is not None:
                 record = modified_record
-        # TODO проверить, не делает ли повторную валидацию fastapi в роутере
         return record
 
-    async def update(self, obj_id: str | int, obj: Type[dict[str, Any]], filters: dict[str, Any] = {}) -> dict[
+    async def update(self, obj_id: str | int, obj: Type[dict[str, Any]]) -> dict[
         str, Any]:
         _obj = None
         if self._before_update_func is not None:
             _obj = await self._before_update_func(obj_id, obj)
         if _obj is None:
             _obj = obj
-        record = await self._connector.update_one(obj_id=obj_id, obj=_obj, filters=filters)
+        record = await self._connector.update_one(obj_id=obj_id, obj=_obj)
         if self._after_update_func is not None:
             modified_record = await self._after_update_func(record)
             if modified_record is not None:
                 record = modified_record
         return record
 
-    async def delete(self, obj_id: str | int, filters: dict[str, Any] = {}):
+    async def delete(self, obj_id: str | int):
         if self._before_delete_func is not None:
-            await self._before_delete_func(obj_id, filters)
-        record = await self._connector.delete_one(obj_id=obj_id, filters=filters)
+            await self._before_delete_func(obj_id)
+        record = await self._connector.delete_one(obj_id=obj_id)
         if self._after_delete_func is not None:
             await self._after_delete_func(record)
         return record

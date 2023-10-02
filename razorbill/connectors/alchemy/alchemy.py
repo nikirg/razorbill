@@ -85,7 +85,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         if filters:
             where = [getattr(self.model, key) == value for key, value in filters.items()]
         if populate:
-            parent_relationships = _get_parent_relationships(self.model, filters)
+            parent_relationships = _get_parent_relationships(self.model, filters.keys())
             relationship_attrs = [getattr(self.model, field) for field in parent_relationships]
             statement = statement.options(
                 *[joinedload(attr) for attr in relationship_attrs]
@@ -115,19 +115,14 @@ class AsyncSQLAlchemyConnector(BaseConnector):
     async def get_one(
             self,
             obj_id: str | int,
-            filters: dict[str, Any] = {},
-            populate: bool = False,
+            populate: bool | str = False,
     ) -> dict[str, Any] | None:
         statement = select(self.model)
         parent_relationships = []
         statement = statement.where(self.model.id == obj_id)
 
-        if filters:
-            where = [getattr(self.model, key) == value for key, value in filters.items()]
-            statement = statement.where(and_(True, *where))
-
         if populate:
-            parent_relationships = _get_parent_relationships(self.model, filters)
+            parent_relationships = _get_parent_relationships(self.model, [populate])
             relationship_attrs = [getattr(self.model, field) for field in parent_relationships]
             statement = statement.options(
                 *[joinedload(attr) for attr in relationship_attrs]
@@ -147,8 +142,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
 
     async def update_one(
             self, obj_id: str | int,
-            obj: dict[str, Any],
-            filters: dict[str, Any] = {}
+            obj: dict[str, Any]
     ) -> dict[str, Any]:
         statement = (
             update(self.model)
@@ -156,9 +150,6 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             .where(self.model.id == obj_id)
             .execution_options(synchronize_session="fetch")
         )
-        if filters:
-            where = [getattr(self.model, key) == value for key, value in filters.items()]
-            statement = statement.where(and_(True, *where))
 
         try:
             async with self.session_maker.begin() as session:
@@ -170,12 +161,10 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         except sqlalchemy.exc.IntegrityError as error:
             raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
 
-    async def delete_one(self, obj_id: str | int, filters: dict[str, Any] = {}) -> bool:
+    async def delete_one(self, obj_id: str | int) -> bool:
         async with self.session_maker.begin() as session:
             statement = select(self.model).where(self.model.id == obj_id)
             where = []
-            if filters:
-                where = [getattr(self.model, key) == value for key, value in filters.items()]
             statement = statement.where(and_(True, *where))
 
             query = await session.execute(statement)
