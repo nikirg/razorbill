@@ -220,10 +220,6 @@ class Router(APIRouter):
             item = await self.crud.create(payload)
             return item
 
-
-
-
-
     def _init_get_one_endpoint(self, deps: list[Callable] | bool):
         @self.get(
             self._item_path,
@@ -256,15 +252,15 @@ class Router(APIRouter):
         )
         async def update_one(
                 *,
-                parent: dict[str, int] = self._parent_id_dependency,
+                #parent: dict[str, int] = self._parent_id_dependency,
                 item_id: int | str = self._path_field,
                 body: self.UpdateSchema,
         ):
             payload = body.dict(exclude_unset=True)
-            if parent is not None:
-                payload = body.dict(exclude_unset=True) | parent
+            # if parent is not None:
+            #     payload = body.dict(exclude_unset=True) | parent
 
-            item = await self.crud.update(item_id, payload, parent)  # type: ignore
+            item = await self.crud.update(item_id, payload)  # type: ignore
             if item:
                 return item
             raise NotFoundError(self.Schema.__name__, self._path_field.alias, item_id)
@@ -272,8 +268,11 @@ class Router(APIRouter):
     def _init_delete_one_endpoint(self, deps: list[Callable] | bool):
         @self.delete(self._item_path, dependencies=init_deps(deps))
         async def delete_one(
-                parent: dict[str, int] = self._parent_id_dependency,
+                #parent: dict[str, int] = self._parent_id_dependency,
                 item_id: int | str = self._path_field,
         ):
-            if not await self.crud.delete(item_id, parent):
-                raise NotFoundError(self.Schema.__name__, self._path_field.alias, item_id)
+            item = await self.crud.delete(item_id)
+            print(item)
+            if item:
+                return item
+            raise NotFoundError(self.Schema.__name__, self._path_field.alias, item_id)

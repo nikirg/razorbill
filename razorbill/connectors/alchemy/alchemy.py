@@ -173,5 +173,5 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             if item is not None:
                 await session.delete(item)
                 await session.commit()
-                return True
-        return False
+                return item
+        return None
