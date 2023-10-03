@@ -43,5 +43,5 @@ class BaseConnector(ABC):
         pass
 
     @abstractmethod
-    async def delete_one(self, obj_id: str | int) -> bool:
+    async def delete_one(self, obj_id: str | int) -> dict[str, Any] | None:
         pass

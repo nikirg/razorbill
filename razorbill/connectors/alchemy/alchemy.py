@@ -161,7 +161,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         except sqlalchemy.exc.IntegrityError as error:
             raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
 
-    async def delete_one(self, obj_id: str | int) -> bool:
+    async def delete_one(self, obj_id: str | int) -> dict[str, Any] | None:
         async with self.session_maker.begin() as session:
             statement = select(self.model).where(self.model.id == obj_id)
             where = []
@@ -173,5 +173,5 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             if item is not None:
                 await session.delete(item)
                 await session.commit()
-                return item
-        return None
+                return _object_to_dict(item)
+            return None

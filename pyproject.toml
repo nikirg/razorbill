@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "razorbill"
-version = "0.1.16"
+version = "0.1.17"
 description = "Razorbill is a framework for quickly creating API applications using only the description of the data model."
 authors = ["Nikita Irgashev <nik.irg@yandex.ru>", "Vladislav Vavilov <vladvav94@gmail.com>"]
 readme = "README.md"
