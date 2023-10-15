@@ -119,7 +119,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
     ) -> dict[str, Any] | None:
         statement = select(self.model)
         parent_relationships = []
-        statement = statement.where(self.model.id == obj_id)
+        statement = statement.where(self.model.id == int(obj_id))
 
         if populate:
             parent_relationships = _get_parent_relationships(self.model, [populate])
@@ -147,7 +147,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         statement = (
             update(self.model)
             .values(obj)
-            .where(self.model.id == obj_id)
+            .where(self.model.id == int(obj_id))
             .execution_options(synchronize_session="fetch")
         )
 
@@ -163,7 +163,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
 
     async def delete_one(self, obj_id: str | int) -> dict[str, Any] | None:
         async with self.session_maker.begin() as session:
-            statement = select(self.model).where(self.model.id == obj_id)
+            statement = select(self.model).where(self.model.id == int(obj_id))
             where = []
             statement = statement.where(and_(True, *where))
 
