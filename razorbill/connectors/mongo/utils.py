@@ -16,9 +16,10 @@ def create_beanie_model(
         exclude: Container[str] = (),
 ) -> Type[Document]:
     fields = {
-        f.name: (f.type_, ...)
-        for f in pydantic_model.__fields__.values()
-        if f.name not in exclude}
+        name: (info.annotation, ...)
+        for name, info in pydantic_model.__fields__.items()
+        if name not in exclude
+    }
     beanie_model = create_model(
         db_model_name, __base__=Document, __config__=None, **fields
     )

@@ -13,16 +13,19 @@ class OrmConfig(BaseConfig):
 
 
 def create_schema_from_model_with_overwrite(
-        schema_cls: Type[T], overwrite_cls: Type[BaseModel], pk_field_name: str = "_id", prefix: str = "Create"
+    schema_cls: Type[T], 
+    overwrite_cls: Type[BaseModel],
+    pk_field_name: str = "_id", 
+    prefix: str = "Create"
 ) -> Type[T]:
     fields = {}
-    for f in schema_cls.__fields__.values():
-        if f.name != pk_field_name:
-            for overwrite_f in overwrite_cls.__fields__.values():
-                if f.name == overwrite_f.name:
-                    fields[f.name] = (overwrite_f.type_, ... if overwrite_f.required else None)
+    for field_name, field_info in schema_cls.__fields__.items():
+        if field_name != pk_field_name:
+            for overwrite_field_name, overwrite_field_info in overwrite_cls.__fields__.items():
+                if field_name == overwrite_field_name:
+                    fields[field_name] = (overwrite_field_info.annotation, ... if overwrite_field_info.is_required() else None)
                     break
-            fields[f.name] = (f.type_, ... if f.required else None)
+            fields[field_name] = (field_info.annotation, ... if field_info.is_required() else None)
 
     name = prefix + schema_cls.__name__
     schema: Type[T] = create_model(__model_name=name, __base__=overwrite_cls, **fields)  # type: ignore
@@ -31,8 +34,8 @@ def create_schema_from_model_with_overwrite(
 
 def parent_schema_factory(schema_cls: Type[T], pk_field_name: str) -> Type[T]:
     fields = {
-        f.name: (f.type_, ... if f.required else None)
-        for f in schema_cls.__fields__.values()
+        name: (info.annotation, ... if info.is_required() else None)
+        for name, info in schema_cls.__fields__.items()
     }
     fields[pk_field_name] = (dict[str, Any], Field(None))
     name = schema_cls.__name__
@@ -42,22 +45,25 @@ def parent_schema_factory(schema_cls: Type[T], pk_field_name: str) -> Type[T]:
 
 
 def schema_factory(
-        schema_cls: Type[T], exclude_fields: list = list["_id"], prefix: str = "Create", filters: list[str] = None
+    schema_cls: Type[T], 
+    exclude_fields: list[str] = ["_id"], 
+    prefix: str = "Create", 
+    filters: list[str]|None = None
 ) -> Type[T]:
     if filters is None:
         if prefix == 'Filter':
             fields = {}
         else:
             fields = {
-                f.name: (f.type_, ... if f.required else None)
-                for f in schema_cls.__fields__.values()
-                if f.name not in exclude_fields
+                name: (info.annotation, ... if info.is_required() else None)
+                for name, info in schema_cls.__fields__.items()
+                if name not in exclude_fields
             }
     else:
         fields = {
-            f.name: (f.type_, Field(None))
-            for f in schema_cls.__fields__.values()
-            if f.name not in exclude_fields and f.name in filters
+            name: (info.annotation, Field(None))
+            for name, info in schema_cls.__fields__.items()
+            if name not in exclude_fields and name in filters
         }
 
     name = prefix + schema_cls.__name__
@@ -74,5 +80,9 @@ def validate_filters(
         schema_cls: Type[T],
         filters: list[str]
 ):
-    valid_filters = [filter_field for filter_field in filters if filter_field in schema_cls.__annotations__]
+    valid_filters = [
+        filter_field for filter_field 
+        in filters if filter_field 
+        in schema_cls.__annotations__
+    ]
     return valid_filters
