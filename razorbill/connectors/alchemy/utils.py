@@ -41,6 +41,8 @@ def _sqlalchemy_to_pydantic(
                 default = None
                 if column.default is None and not column.nullable:
                     default = ...
+                else:
+                    python_type = python_type|None
                 fields[name] = (python_type, default)
     pydantic_model = create_model(
         model_name, __base__=base_pydantic_model, __config__=config, **fields
