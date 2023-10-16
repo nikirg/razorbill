@@ -76,7 +76,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             limit: int,
             filters: dict[str, Any] = {},
             populate: bool = False,
-            sorting: dict[str, bool] = None
+            sorting: dict[str, bool]|None = None
     ) -> list[dict[str, Any]]:
         statement = select(self.model)
 
@@ -93,10 +93,10 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             relationship_attrs = [getattr(self.model, field) for field in parent_relationships]
             statement = statement.where(and_(True, *where)).options(
                 *[joinedload(attr) for attr in relationship_attrs]
-            ).offset(skip).limit(limit)
+            ).offset(int(skip)).limit(int(limit))
 
         else:
-            statement = statement.where(and_(True, *where)).offset(skip).limit(limit)
+            statement = statement.where(and_(True, *where)).offset(int(skip)).limit(int(limit))
 
         if sorting:
             for field, sort_desc in sorting.items():

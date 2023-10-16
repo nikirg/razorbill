@@ -49,9 +49,9 @@ def _sqlalchemy_to_pydantic(
 
 
 def _pydantic_to_sqlalchemy(pydantic_obj: BaseModel, sqlalchemy_model: DeclarativeMeta) -> DeclarativeBase:
-    data = pydantic_obj.dict()
+    data = pydantic_obj.model_dump()
     mapped_fields = {}
-    mapper = class_mapper(sqlalchemy_model)
+    mapper = class_mapper(sqlalchemy_model) # type: ignore
 
     for field in mapper.columns:
         field_name = field.key
@@ -75,7 +75,7 @@ def _prepare_result(item, parent_relationships):
     return None
 
 
-def _get_parent_relationships(model: Type[DeclarativeBase], parent_name: [str]) -> list[str]:
+def _get_parent_relationships(model: Type[DeclarativeBase], parent_name: str) -> list[str]:
     parent_relationships = []
     for column in model.__table__.columns:
         for fk in column.foreign_keys:
