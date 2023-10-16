@@ -73,8 +73,13 @@ class Router(APIRouter):
             self.create_schema = (
                 create_schema
                 if overwrite_create_schema
-                else create_schema_from_model_with_overwrite(self.Schema, create_schema, pk_field_name=self.pk,
-                                                             prefix="Create")
+                else create_schema_from_model_with_overwrite(
+                    self.Schema, 
+                    create_schema, 
+                    pk_field_name=self.pk,
+                    prefix="Create",
+                    exclude_fields=self.exclude_from_create_schema + [self.pk]
+                )
             )
         else:
             self.create_schema = schema_factory(self.Schema, self.exclude_from_create_schema + [self.pk])
@@ -82,8 +87,13 @@ class Router(APIRouter):
             self.update_schema = (
                 update_schema
                 if overwrite_update_schema
-                else create_schema_from_model_with_overwrite(self.Schema, update_schema, pk_field_name=self.pk,
-                                                             prefix="")
+                else create_schema_from_model_with_overwrite(
+                    self.Schema, 
+                    update_schema,
+                    pk_field_name=self.pk,
+                    prefix="",
+                    exclude_fields=self.exclude_from_update_schema + [self.pk]
+                )
             )
         else:
             self.update_schema = schema_factory(self.Schema, self.exclude_from_update_schema + [self.pk], prefix="Update")

@@ -16,16 +16,19 @@ def create_schema_from_model_with_overwrite(
     schema_cls: Type[T], 
     overwrite_cls: Type[BaseModel],
     pk_field_name: str = "_id", 
-    prefix: str = "Create"
+    prefix: str = "Create",
+    exclude_fields: list[str] = []
 ) -> Type[T]:
     fields = {}
     for field_name, field_info in schema_cls.__fields__.items():
         if field_name != pk_field_name:
             for overwrite_field_name, overwrite_field_info in overwrite_cls.__fields__.items():
                 if field_name == overwrite_field_name:
-                    fields[field_name] = (overwrite_field_info.annotation, ... if overwrite_field_info.is_required() else None)
+                    if field_name not in exclude_fields: 
+                        fields[field_name] = (overwrite_field_info.annotation, ... if overwrite_field_info.is_required() else None)
                     break
-            fields[field_name] = (field_info.annotation, ... if field_info.is_required() else None)
+            if field_name not in exclude_fields: 
+                fields[field_name] = (field_info.annotation, ... if field_info.is_required() else None)
 
     name = prefix + schema_cls.__name__
     schema: Type[T] = create_model(__model_name=name, __base__=overwrite_cls, **fields)  # type: ignore
