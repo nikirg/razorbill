@@ -12,7 +12,7 @@ class OrmConfig(BaseConfig):
     orm_mode = True
 
 
-def create_schema_from_model_with_overwrite(
+def create_schema_from_model_no_overwrite(
     schema_cls: Type[T], 
     overwrite_cls: Type[BaseModel],
     pk_field_name: str = "_id", 

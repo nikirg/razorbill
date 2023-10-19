@@ -19,7 +19,7 @@ from razorbill.utils import (
     schema_factory,
     validate_filters,
     parent_schema_factory,
-    create_schema_from_model_with_overwrite
+    create_schema_from_model_no_overwrite
 )
 
 
@@ -69,36 +69,43 @@ class Router(APIRouter):
         self.exclude_from_update_schema = exclude_from_update_schema
         self.filters = validate_filters(self.Schema,
                                         filters) if filters is not None else None  # TODO нигде не используется
+        self.parent_item_name = parent_item_name
+        parent_item_name_in_array = []
+        if parent_crud is not None:
+            if parent_item_name is None:
+                self.parent_item_name = parent_crud.connector.schema.__name__
+            parent_item_tag, _, parent_item_path = build_path_elements(self.parent_item_name)
+            parent_item_name_in_array = [parent_item_tag]
         if create_schema:
             self.create_schema = (
                 create_schema
                 if overwrite_create_schema
-                else create_schema_from_model_with_overwrite(
+                else create_schema_from_model_no_overwrite(
                     self.Schema, 
                     create_schema, 
                     pk_field_name=self.pk,
                     prefix="Create",
-                    exclude_fields=self.exclude_from_create_schema + [self.pk]
+                    exclude_fields=self.exclude_from_create_schema + [self.pk] + parent_item_name_in_array
                 )
             )
         else:
-            self.create_schema = schema_factory(self.Schema, self.exclude_from_create_schema + [self.pk])
+            self.create_schema = schema_factory(self.Schema, self.exclude_from_create_schema + [self.pk] + parent_item_name_in_array)
         if update_schema:
             self.update_schema = (
                 update_schema
                 if overwrite_update_schema
-                else create_schema_from_model_with_overwrite(
+                else create_schema_from_model_no_overwrite(
                     self.Schema, 
                     update_schema,
                     pk_field_name=self.pk,
-                    prefix="",
-                    exclude_fields=self.exclude_from_update_schema + [self.pk]
+                    prefix="Update",
+                    exclude_fields=self.exclude_from_update_schema + [self.pk] + parent_item_name_in_array
                 )
             )
         else:
-            self.update_schema = schema_factory(self.Schema, self.exclude_from_update_schema + [self.pk], prefix="Update")
+            self.update_schema = schema_factory(self.Schema, self.exclude_from_update_schema + [self.pk] + parent_item_name_in_array, prefix="Update")
 
-        self.parent_item_name = parent_item_name
+
         self.CreateSchema = self.create_schema
         self.UpdateSchema = self.update_schema
 
@@ -116,8 +123,8 @@ class Router(APIRouter):
             if parent_item_name is None:
                 self.parent_item_name = parent_crud.connector.schema.__name__
             parent_item_tag, _, parent_item_path = build_path_elements(self.parent_item_name)
-            self.CreateSchema = schema_factory(self.create_schema, self.exclude_from_create_schema + [parent_item_tag])
-            self.UpdateSchema = schema_factory(self.update_schema, self.exclude_from_update_schema + [parent_item_tag], prefix='Update')
+            # self.CreateSchema = schema_factory(self.create_schema, self.exclude_from_create_schema + [parent_item_tag])
+            # self.UpdateSchema = schema_factory(self.update_schema, self.exclude_from_update_schema + [parent_item_tag], prefix='Update')
 
             self.Schema = parent_schema_factory(self.Schema, self.parent_item_name)
             parent_exists_dependency = build_exists_dependency(parent_crud, parent_item_tag)
