@@ -1,30 +1,27 @@
-from fastapi import HTTPException, Depends, Path, Request, Query
+from typing import Type
+
+from pydantic import BaseModel
+from fastapi import HTTPException, Depends, Path, Request, Query, params
+
 from razorbill.crud import CRUD
-import re
-from typing import Callable, Type
-from pydantic import BaseModel, Field
 from razorbill.exceptions import NotFoundError
 
 
-def build_exists_dependency(
-        crud: CRUD, item_tag: str
-) -> Depends:
+def build_exists_dependency(crud: CRUD, item_tag: str) -> params.Depends:
     """Зависимость, которая берет id элемента из URL и проверяет есть ли данный элемент в базе"""
 
-    async def dep(
-            item_id: int | str = Path(alias=item_tag),
-    ):
+    async def dep(item_id: int | str = Path(..., alias=item_tag)):
         item = await crud.get_one(item_id)
         if item is None:
             raise NotFoundError(crud.connector.schema.__name__, item_tag, item_id)
 
-    return dep
+    return Depends(dep)
 
 
 # TODO нужно ли тут возвращать словарь, надо подумать
-def build_last_parent_dependency(item_tag: str, type_pk: Type[str | int]) -> Depends:
+def build_last_parent_dependency(item_tag: str, type_pk: Type[str|int]) -> params.Depends:
     """Зависимость, которая передает в endpoint id родителя (если он есть)"""
-
+    
     async def dep(request: Request):
         item_id = request.path_params.get(item_tag)
         if item_id is None:
@@ -34,16 +31,16 @@ def build_last_parent_dependency(item_tag: str, type_pk: Type[str | int]) -> Dep
     return Depends(dep)
 
 
-def build_parent_populate_dependency() -> Depends:
+def build_parent_populate_dependency() -> params.Depends:
     async def dep(
-            populate_parent: bool | str = Query(False),
+        populate_parent: bool | str = Query(False),
     ):
         return populate_parent
 
     return Depends(dep)
 
 
-def build_sorting_dependency(obj: Type[BaseModel]) -> Depends:
+def build_sorting_dependency(obj: Type[BaseModel]) -> params.Depends:
     def get_sortable_fields():
         return list(obj.__fields__.keys())
 
@@ -56,7 +53,7 @@ def build_sorting_dependency(obj: Type[BaseModel]) -> Depends:
     return Depends(dep)
 
 
-def build_pagination_dependency(max_limit: int | None = None) -> Depends:
+def build_pagination_dependency(max_limit: int | None = None) -> params.Depends:
     """Зависимость, которая валидируют пагинационный параметры запроса"""
 
     def create_query_validation_exception(field: str, msg: str) -> HTTPException:
@@ -92,24 +89,3 @@ def build_pagination_dependency(max_limit: int | None = None) -> Depends:
 
     return Depends(pagination)
 
-
-def init_deps(funcs: list[Callable] | bool) -> list[Depends]:
-    if isinstance(funcs, list):
-        return [Depends(func) for func in funcs]
-    return []
-
-
-def camel_to_snake(name):
-    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
-
-
-def build_path_elements(name: str) -> tuple[str, str, str]:
-    """Создает строковые элементы URL"""
-    name = camel_to_snake(name)
-    item_tag = name + "_id"
-    item_path_tag = "{" + item_tag + "}"
-    path = f"/{name}/"
-    item_path = path + item_path_tag
-
-    return item_tag, path, item_path

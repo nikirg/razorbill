@@ -7,7 +7,14 @@ class AppError(Exception):
 
 
 class NotFoundError(AppError):
-    def __init__(self, model_name: str, field_name: str, field_value: int):
+    def __init__(self, model_name: str, field_name: str, field_value: int|str):
         self.status_code = 404
         self.message = f"{model_name} with {field_name}={field_value} not found"
         raise HTTPException(status_code=self.status_code, detail=self.message)
+    
+    
+class UndefinedSchemaException(Exception):
+    pass
+
+class UndefinedParentItemName(Exception):
+    pass

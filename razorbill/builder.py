@@ -1,130 +1,46 @@
-from pydantic import BaseModel
+from typing import Any, Type, TypeVar
+
 from razorbill.crud import CRUD
 from razorbill.router import Router
-from razorbill.connectors.memory import MemoryConnector
-from razorbill.connectors.alchemy.alchemy import AsyncSQLAlchemyConnector
-from razorbill.connectors.mongo.mongo import AsyncMongoConnector
-from sqlalchemy.orm import DeclarativeBase
-from enum import Enum
-from typing import Callable, Type, Any
-from fastapi import Path, Depends
+from razorbill.connectors.base import BaseConnector
 
 
-def builder_crud(
-        url: str | None = None,
-        schema: Type[BaseModel] | None = None,
-        model: Type[DeclarativeBase] | None = None,
-        memory_connector: bool | None = True,
-        mongo_connector:bool | None = True,
-        alchemy_connector: bool | None = False,
-        pk: str | None = "id",
-        session_maker: Any | None = None
-):
-    if alchemy_connector:
-        if not url or not model:
-            return None
-        connector = AsyncSQLAlchemyConnector(
-            model=model,
-            url=url,
-            pk_name=pk,
-            session_maker=session_maker)
-    elif mongo_connector:
-        if not url or not schema:
-            return None
-        connector = AsyncMongoConnector(
-            model=schema,
-            url=url,
-            pk_name=pk)
-
-    else:
-        if schema is None:
-            return None
-
-        connector = MemoryConnector(
-            schema=schema,
-            pk_name=pk
-        )
-
-    return CRUD(connector=connector)
+class Resource:
+    pass
 
 
-def builder_router(
-        url: str | None = None,
-        schema: Type[BaseModel] | None = None,
-        model: Type[DeclarativeBase] | None = None,
-        memory_connector: bool | None = True,
-        alchemy_connector: bool | None = False,
-        mongo_connector: bool | None = False,
-        create_schema: Type[BaseModel] | None = None,
-        update_schema: Type[BaseModel] | None = None,
-        overwrite_schema: bool = False,
-        overwrite_create_schema: bool = False,
-        overwrite_update_schema: bool = False,
-        pk: str | None = "id",
-        items_per_query: int = 10,
-        item_name: str | None = None,
-        parent_item_name: str | None = None,
-        count_endpoint: bool | list[Callable] = True,
-        get_all_endpoint: bool | list[Callable] = True,
-        get_one_endpoint: bool | list[Callable] = True,
-        create_one_endpoint: bool | list[Callable] = True,
-        update_one_endpoint: bool | list[Callable] = True,
-        delete_one_endpoint: bool | list[Callable] = True,
-        path_item_parameter: Type[Path] | None = None,
-        prefix: str = '',
-        tags: list[str | Enum] | None = None,
-        dependencies: list[Depends] | None = None,
-        schema_slug: str | None = None,
-        parent_schema: Type[BaseModel] | None = None,
-        parent_model: Type[DeclarativeBase] | None = None,
-        filters: list[str] | None = None,
-        session_maker: Any | None = None,
-        exclude_from_create_schema: list[str] = [],
-        exclude_from_update_schema: list[str] = [],
-):
-    crud = builder_crud(
-        url=url,
-        schema=schema,
-        model=model,
-        memory_connector=memory_connector,
-        alchemy_connector=alchemy_connector,
-        mongo_connector=mongo_connector,
-        pk=pk,
-        session_maker=session_maker,
-    )
-    parent_crud = builder_crud(
-        url=url,
-        schema=parent_schema,
-        model=parent_model,
-        memory_connector=memory_connector,
-        alchemy_connector=alchemy_connector,
-        pk=parent_item_name,
-        session_maker=session_maker,
-    )
-    router = Router(
-        crud,
-        items_per_query=items_per_query,
-        item_name=item_name,
-        parent_item_name=parent_item_name,
-        count_endpoint=count_endpoint,
-        get_all_endpoint=get_all_endpoint,
-        get_one_endpoint=get_one_endpoint,
-        create_one_endpoint=create_one_endpoint,
-        update_one_endpoint=update_one_endpoint,
-        delete_one_endpoint=delete_one_endpoint,
-        parent_crud=parent_crud,
-        path_item_parameter=path_item_parameter,
-        prefix=prefix,
-        tags=tags,
-        dependencies=dependencies,
-        schema_slug=schema_slug,
-        create_schema=create_schema,
-        update_schema=update_schema,
-        overwrite_schema=overwrite_schema,
-        overwrite_create_schema=overwrite_create_schema,
-        overwrite_update_schema=overwrite_update_schema,
-        filters=filters,
-        exclude_from_create_schema=exclude_from_create_schema,
-        exclude_from_update_schema=exclude_from_update_schema
-    )
-    return router
+def build(connector: Type[BaseConnector], parent_crud: CRUD|None = None, **router_kwargs):
+    crud = CRUD(connector)
+    router = Router(crud, parent_crud=parent_crud, **router_kwargs)
+    
+    res
+    
+    # resources = {}
+    # parent_model_name = None
+
+    # for model, parent_model, kwargs in configs:
+    #     model_name = model.__name__
+
+    #     if parent_model is not None:
+    #         parent_model_name = parent_model.__name__
+    #         parent_resource = resources.get(parent_model_name)
+
+    #         if parent_resource is None:
+    #             parent_connector = AsyncSQLAlchemyConnector(str(db_config.DATABASE_URL), parent_model)
+    #             parent_crud = CRUD(parent_connector)
+    #             parent_router = APIRouter(parent_crud)
+
+    #             resources[parent_model_name] = Box(crud=parent_crud, router=parent_router)
+
+    #     connector = AsyncSQLAlchemyConnector(str(db_config.DATABASE_URL), model)
+    #     parent_resource = resources.get(parent_model_name)
+    #     if parent_resource is None:
+    #         parent_crud = None
+    #     else:
+    #         parent_crud = parent_resource.crud
+    #     crud = CRUD(connector)
+    #     router = APIRouter(crud, parent_crud=parent_crud, **kwargs)
+
+    #     resources[model_name] = Box(crud=crud, router=router)
+
+    # return Box(resources)

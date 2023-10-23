@@ -1,288 +1,305 @@
 from enum import Enum
-from fastapi import APIRouter, Path, Depends, Query, FastAPI
-from typing import Optional
+from typing import Callable, Type, Any
+
+from pydantic import BaseModel
+from fastapi import APIRouter, Path, Depends, params
+
 from razorbill.crud import CRUD
+from razorbill.exceptions import NotFoundError, UndefinedParentItemName, UndefinedSchemaException
+from razorbill.schema import rebuild_schema
+from razorbill.utils import get_slug_schema_name, build_path_elements
 from razorbill.deps import (
     build_exists_dependency,
     build_last_parent_dependency,
     build_pagination_dependency,
-    build_path_elements,
-    init_deps,
     build_parent_populate_dependency,
     build_sorting_dependency,
 )
-from razorbill.exceptions import NotFoundError
-from typing import Callable, Type
-from pydantic import BaseModel
-from razorbill.utils import (
-    get_slug_schema_name,
-    schema_factory,
-    validate_filters,
-    parent_schema_factory,
-    create_schema_from_model_with_overwrite
-)
 
-
-def empty_dependency():
-    return None
-
+_dummy_dependency = Depends(lambda: None)
+#class _DummyFilter(BaseModel): pass
 
 class Router(APIRouter):
     def __init__(
         self,
         crud: CRUD,
         items_per_query: int = 10,
-        item_name: str | None = None,
-        parent_item_name: str | None = None,
-        count_endpoint: bool | list[Callable] = True,
-        get_all_endpoint: bool | list[Callable] = True,
-        get_one_endpoint: bool | list[Callable] = True,
-        create_one_endpoint: bool | list[Callable] = True,
-        update_one_endpoint: bool | list[Callable] = True,
-        delete_one_endpoint: bool | list[Callable] = True,
-        parent_crud: CRUD | None = None,
-        path_item_parameter: Type[Path] | None = None,
+        item_name: str|None = None,
+        parent_item_name: str|None = None,
+        parent_crud: CRUD|None = None,
+        parent_prefix: str = '',
+        count_endpoint: bool|list[params.Depends] = True,
+        get_all_endpoint: bool|list[params.Depends] = True,
+        get_one_endpoint: bool|list[params.Depends] = True,
+        create_one_endpoint: bool|list[params.Depends] = True,
+        update_one_endpoint: bool|list[params.Depends] = True,
+        delete_one_endpoint: bool|list[params.Depends] = True,
+        path_item_parameter: Callable|None = None,
         prefix: str = '',
-        tags: list[str | Enum] | None = None,
-        dependencies: list[Depends] | None = None,
-        schema_slug: str | None = None,
+        tags: list[str|Enum]|None = None,
+        dependencies: list[params.Depends] | None = None,
+        schema_slug: str|None = None,
         filters: list[str]|None = None,
         schema: Type[BaseModel] | None = None,
-        create_schema: Type[BaseModel] | None = None,
-        update_schema: Type[BaseModel] | None = None,
-        overwrite_schema: bool = False,
+        create_schema: Type[BaseModel]|None = None,
+        update_schema: Type[BaseModel]|None = None,
         overwrite_create_schema: bool = False,
         overwrite_update_schema: bool = False,
-        exclude_from_create_schema: list[str] = [],
-        exclude_from_update_schema: list[str] = [],
+        exclude_from_create_schema: list[str]|None = None,
+        exclude_from_update_schema: list[str]|None = None,
         **kwargs
-    ):
-        self.parent_prefix = ''
-        self.crud = crud
-        self.parent_dependencies = dependencies
-        self.pk = crud.connector.pk_name
-        self.overwrite_schema = overwrite_schema
-        self.overwrite_create_schema = overwrite_create_schema
-        self.overwrite_update_schema = overwrite_update_schema
-        self.Schema = schema if schema is not None else crud.connector.schema
-        self.exclude_from_create_schema = exclude_from_create_schema
-        self.exclude_from_update_schema = exclude_from_update_schema
-        self.filters = validate_filters(self.Schema,
-                                        filters) if filters is not None else None  # TODO нигде не используется
-        if create_schema:
-            self.create_schema = (
-                create_schema
-                if overwrite_create_schema
-                else create_schema_from_model_with_overwrite(
-                    self.Schema, 
-                    create_schema, 
-                    pk_field_name=self.pk,
-                    prefix="Create",
-                    exclude_fields=self.exclude_from_create_schema + [self.pk]
-                )
-            )
-        else:
-            self.create_schema = schema_factory(self.Schema, self.exclude_from_create_schema + [self.pk])
-        if update_schema:
-            self.update_schema = (
-                update_schema
-                if overwrite_update_schema
-                else create_schema_from_model_with_overwrite(
-                    self.Schema, 
-                    update_schema,
-                    pk_field_name=self.pk,
-                    prefix="",
-                    exclude_fields=self.exclude_from_update_schema + [self.pk]
-                )
-            )
-        else:
-            self.update_schema = schema_factory(self.Schema, self.exclude_from_update_schema + [self.pk], prefix="Update")
+    ):      
+        super().__init__(dependencies=dependencies, **kwargs)
+                      
+        self._crud = crud
+                    
+        self._parent_crud = parent_crud
+        self._parent_prefix = parent_prefix
+        self._parent_item_name = parent_item_name        
+        self._parent_exists_dependency = _dummy_dependency
+        self._parent_id_dependency = _dummy_dependency
+        self._parent_populate_dependency = _dummy_dependency
+        self._parent_item_tag = None
+            
+        self._build_parent()
+        
+        self._overwrite_create_schema = overwrite_create_schema
+        self._overwrite_update_schema = overwrite_update_schema
+        self._exclude_from_create_schema = [] if exclude_from_create_schema is None else exclude_from_create_schema
+        self._exclude_from_update_schema = [] if exclude_from_update_schema is None else exclude_from_update_schema
+        self._Schema = schema
+        self._CreateSchema = create_schema
+        self._UpdateSchema = update_schema
+        
+        self._build_schemes()
+        
+        self._sort_field_dependency = build_sorting_dependency(self._Schema) # type: ignore
+        
 
-        self.parent_item_name = parent_item_name
-        self.CreateSchema = self.create_schema
-        self.UpdateSchema = self.update_schema
-
-        self._parent_id_dependency = Depends(empty_dependency)
-        self._parent_populate_dependency = Depends(empty_dependency)
-
+        # self._FilterSchema = _DummyFilter
+        
+        # if filters is not None:
+        #     filters = validate_filters(self._Schema, filters)  # type: ignore
+        #     self._FilterSchema = rebuild_schema(
+        #         self._CreateSchema,  # type: ignore
+        #         fields_to_include=filters,
+        #         schema_name_prefix="Filter"
+        #     )
+     
         if item_name is None:
-            item_name = self.Schema.__name__
+            item_name = self._Schema.__name__ # type: ignore
 
         if schema_slug is None:
-            self._schema_slug = get_slug_schema_name(item_name)
-        fields_to_exclude = ["id", "_id"]
-        self._sort_field_dependency = build_sorting_dependency(self.Schema)
-        if parent_crud is not None:
-            if parent_item_name is None:
-                self.parent_item_name = parent_crud.connector.schema.__name__
-            parent_item_tag, _, parent_item_path = build_path_elements(self.parent_item_name)
-            self.CreateSchema = schema_factory(self.create_schema, self.exclude_from_create_schema + [parent_item_tag])
-            self.UpdateSchema = schema_factory(self.update_schema, self.exclude_from_update_schema + [parent_item_tag], prefix='Update')
-
-            self.Schema = parent_schema_factory(self.Schema, self.parent_item_name)
-            parent_exists_dependency = build_exists_dependency(parent_crud, parent_item_tag)
-            self._parent_id_dependency = build_last_parent_dependency(parent_item_tag, crud.connector.type_pk)
-            self._parent_populate_dependency = build_parent_populate_dependency()
-
-            fields_to_exclude.append(parent_item_tag)
-            if dependencies is not None:
-                self.parent_dependencies.append(parent_exists_dependency)
-            else:
-                self.parent_dependencies = [parent_exists_dependency]
-
-            if prefix is None:
-                self.parent_prefix = parent_item_path
-            else:
-                self.parent_prefix += parent_item_path
-
+            schema_slug = get_slug_schema_name(item_name)
+            
         if tags is None:
-            tags = [self._schema_slug]
+            tags = [schema_slug]
 
-        self.FilterSchema = schema_factory(self.CreateSchema, prefix='Filter', filters=filters)
         item_tag, path, item_path = build_path_elements(item_name)
         self._path = path
-        #self._path_without_parent = path
         self._item_path = item_path
         self._path_field = Path(alias=item_tag) if path_item_parameter is None else path_item_parameter
         self._pagination_dependency = build_pagination_dependency(items_per_query)
-
-        super().__init__(
-            dependencies=dependencies,
-            prefix=prefix,
-            tags=tags,
-            **kwargs
-        )
+            
+        self.prefix = prefix
+        self.tags = tags
+        
         if count_endpoint:
-            self._init_count_endpoint(self.parent_dependencies if self.parent_dependencies is not None else None)
+            self._init_count_endpoint(count_endpoint)
 
         if get_all_endpoint:
-            self._init_get_all_endpoint(self.parent_dependencies if self.parent_dependencies is not None else None)
+            self._init_get_all_endpoint(get_all_endpoint)
 
         if get_one_endpoint:
             self._init_get_one_endpoint(get_one_endpoint)
 
         if create_one_endpoint:
-            self._init_create_one_endpoint(self.parent_dependencies if self.parent_dependencies is not None else None)
+            self._init_create_one_endpoint(create_one_endpoint)
 
         if update_one_endpoint:
-            self._init_update_one_endpoint(update_one_endpoint)
+            self._init_update_one_endpoint(create_one_endpoint)
 
         if delete_one_endpoint:
             self._init_delete_one_endpoint(delete_one_endpoint)
+            
+    @property
+    def parent_crud(self) -> CRUD|None:
+        return self._parent_crud
+    
+    @property
+    def Schema(self) -> type[BaseModel]|None:
+        return self._Schema # type: ignore
+    
+    @property
+    def CreateSchema(self) -> type[BaseModel]|None:
+        return self._CreateSchema # type: ignore
+    
+    @property
+    def UpdateSchema(self) -> type[BaseModel]|None:
+        return self._UpdateSchema # type: ignore
+        
+            
+    def _init_deps(self, deps: list[params.Depends]|bool, parent:bool = False) -> list[params.Depends]:
+        _deps = []
+        
+        
+        if self._parent_exists_dependency is not None and parent:
+            _deps.append(self._parent_exists_dependency)
+        
+        if isinstance(deps, list):
+            _deps.extend(deps)
 
-    def _init_count_endpoint(self, deps: list[Callable] | bool):
-        @self.get(
-            self.parent_prefix + self._path + "count", response_model=int, dependencies=init_deps(deps)
-        )
+        return _deps
+
+            
+    def _build_parent(self):
+        if self._parent_crud is None:
+            return
+        if self._parent_item_name is None:
+            if (
+                self._parent_crud.connector is None or 
+                self._parent_crud.connector.schema is None
+            ):
+                raise UndefinedParentItemName
+            
+            self._parent_item_name = str(self._parent_crud.connector.schema.__name__) # type: ignore
+            
+        parent_item_tag, _, parent_item_path = build_path_elements(self._parent_item_name)
+
+        self._parent_item_tag = parent_item_tag
+        self._parent_exists_dependency = build_exists_dependency(self._parent_crud, parent_item_tag)
+        self._parent_id_dependency = build_last_parent_dependency(parent_item_tag, self._crud.connector.type_pk) # type: ignore
+        self._parent_populate_dependency = build_parent_populate_dependency()
+        self._parent_prefix += parent_item_path
+        
+       
+    def _build_schemes(self):
+        fields_to_exclude = []
+        fields_to_exclude.append(str(self._parent_item_tag))
+        
+        if self._Schema is None:
+            if self._crud.connector is None:
+                raise UndefinedSchemaException
+     
+            self._Schema = self._crud.connector.schema
+            primary_key = self._crud.connector.pk_name
+            fields_to_exclude.append(str(primary_key))
+                            
+            
+        if self._CreateSchema is None:
+            self._CreateSchema = rebuild_schema(
+                self._Schema,  # type: ignore
+                fields_to_exclude=fields_to_exclude,
+                schema_name_prefix="Create"
+            )
+        elif not self._overwrite_create_schema:
+            self._CreateSchema = rebuild_schema(
+                self._Schema,  # type: ignore
+                base_schema=self._CreateSchema,
+                fields_to_exclude=fields_to_exclude,
+                schema_name_prefix="Create"
+            )
+        
+        if self._UpdateSchema is None:
+            self._UpdateSchema = rebuild_schema(
+                self._Schema,  # type: ignore
+                fields_to_exclude=fields_to_exclude,
+                schema_name_prefix="Update"
+            )
+        elif not self._overwrite_update_schema:
+            self._UpdateSchema = rebuild_schema(
+                self._Schema,  # type: ignore
+                base_schema=self._UpdateSchema,
+                fields_to_exclude=fields_to_exclude,
+                schema_name_prefix="Update"
+            )
+                            
+
+    def _init_count_endpoint(self, deps: bool|list[params.Depends]):
+        path = self._parent_prefix + self._path + "count"
+            
+        @self.get(path, dependencies=self._init_deps(deps, parent=True))
         async def count(
-                parent: dict[str, int] = self._parent_id_dependency,
-                user_filter: self.FilterSchema = Depends(self.FilterSchema),
+            parent: dict[str, int] = self._parent_id_dependency, # type: ignore
+            #filters: self._FilterSchema = Depends(self._FilterSchema), # type: ignore
         ) -> int:
-            payload = user_filter.dict(exclude_none=True)
-            if parent is not None:
-                payload |= parent
-            return await self.crud.count(payload)
+            # payload = filters.model_dump(exclude_none=True)
+            # if parent is not None:
+            #     payload |= parent
+                
+            return await self._crud.count(parent)
 
-    def _init_get_all_endpoint(self, deps: list[Callable] | bool):
-
-        @self.get(
-            self.parent_prefix + self._path,
-            response_model=list[self.Schema],
-            dependencies=init_deps(deps),
-            response_model_exclude_none=True,
-            response_model_exclude_defaults=True,
-            response_model_exclude_unset=True
-        )
+    def _init_get_all_endpoint(self, deps: bool|list[params.Depends]):
+        path = self._parent_prefix + self._path
+            
+        @self.get(path, response_model=list[self._Schema], dependencies=self._init_deps(deps, parent=True)) # type: ignore
         async def get_many(
-                pagination: tuple[str, int] = self._pagination_dependency,
-                parent: dict[str, int] = self._parent_id_dependency,
-                populate_parent: bool = self._parent_populate_dependency,
-                user_filter: self.FilterSchema = Depends(self.FilterSchema),
-                sorting: tuple[str, bool] = self._sort_field_dependency,
+            pagination: tuple[int, int] = self._pagination_dependency, # type: ignore
+            parent: dict[str, int] = self._parent_id_dependency, # type: ignore
+            #populate: list[str]|None = None,
+            #filters: self._FilterSchema = Depends(self._FilterSchema), # type: ignore
+            sorting: tuple[str, bool]|None = self._sort_field_dependency, # type: ignore
         ):
-            payload = user_filter.dict(exclude_none=True)
-            if parent is not None:
-                payload |= parent
+            #payload = filters.model_dump(exclude_none=True)
+            # if parent is not None:
+            #     payload |= parent
             skip, limit = pagination
 
-            sort_field, sort_desc = sorting
-            sorting = {sort_field: sort_desc} if sort_field else None
-            items = await self.crud.get_many(skip, limit, filters=payload, populate=populate_parent, sorting=sorting)
+            items = await self._crud.get_many(
+                skip=skip, limit=limit, 
+                filters=parent, sorting=sorting
+            )
             return items
 
-    def _init_create_one_endpoint(self, deps: list[Callable] | bool):
-        @self.post(
-
-            self.parent_prefix + self._path,
-            response_model=self.Schema,
-            dependencies=init_deps(deps),
-            response_model_exclude_none=True,
-            response_model_exclude_defaults=True,
-            response_model_exclude_unset=True
-        )
+    def _init_create_one_endpoint(self, deps: bool|list[params.Depends]):
+        path = self._parent_prefix + self._path
+            
+        @self.post(path, response_model=self._Schema, dependencies=self._init_deps(deps))
         async def create_one(
-                body: self.CreateSchema,
-                parent: dict[str, int] = self._parent_id_dependency,
+            body: self._CreateSchema,
+            parent: dict[str, int] = self._parent_id_dependency, # type: ignore
         ):
             payload = body.dict()
             if parent is not None:
                 payload = body.dict() | parent
-            item = await self.crud.create(payload)
+            item = await self._crud.create(payload)
             return item
 
-    def _init_get_one_endpoint(self, deps: list[Callable] | bool):
+    def _init_get_one_endpoint(self, deps: bool|list[params.Depends]):
         @self.get(
             self._item_path,
-            response_model=self.Schema,
-            dependencies=init_deps(deps),
-            response_model_exclude_none=True,
-            response_model_exclude_defaults=True,
-            response_model_exclude_unset=True
+            response_model=self._Schema,
+            dependencies=self._init_deps(deps)
         )
         async def get_one(
-                item_id: int | str = self._path_field,
-                #parent: dict[str, int] = self._parent_id_dependency,
-                populate_parent: bool | str = self._parent_populate_dependency,
+            item_id: int | str = self._path_field, # type: ignore
+            #populate: list[str]|None = None,
         ):
-            #item = await self.crud.get_one(item_id, parent, populate=populate_parent)
-            item = await self.crud.get_one(item_id, populate=populate_parent)
+            item = await self._crud.get_one(item_id)#, populate=populate)
             if item:
                 return item
-            raise NotFoundError(self.Schema.__name__, self._path_field.alias, item_id)
+            raise NotFoundError(self._Schema.__name__, self._path_field.alias, item_id) # type: ignore
 
 
-    def _init_update_one_endpoint(self, deps: list[Callable] | bool):
+    def _init_update_one_endpoint(self, deps: bool|list[params.Depends]):
         @self.put(
             self._item_path,
-            response_model=self.Schema,
-            dependencies=init_deps(deps),
-            response_model_exclude_none=True,
-            response_model_exclude_defaults=True,
-            response_model_exclude_unset=True
+            response_model=self._Schema,
+            dependencies=self._init_deps(deps)
         )
         async def update_one(
-                *,
-                #parent: dict[str, int] = self._parent_id_dependency,
-                item_id: int | str = self._path_field,
-                body: self.UpdateSchema,
+            *,
+            item_id: int | str = self._path_field, # type: ignore
+            body: self._UpdateSchema,
         ):
             payload = body.dict(exclude_unset=True)
-            # if parent is not None:
-            #     payload = body.dict(exclude_unset=True) | parent
 
-            item = await self.crud.update(item_id, payload)  # type: ignore
+            item = await self._crud.update(item_id, payload)  # type: ignore
             if item:
                 return item
-            raise NotFoundError(self.Schema.__name__, self._path_field.alias, item_id)
+            raise NotFoundError(self._Schema.__name__, self._path_field.alias, item_id) # type: ignore
 
-    def _init_delete_one_endpoint(self, deps: list[Callable] | bool):
-        @self.delete(self._item_path, dependencies=init_deps(deps))
-        async def delete_one(
-                #parent: dict[str, int] = self._parent_id_dependency,
-                item_id: int | str = self._path_field,
-        ):
-            item = await self.crud.delete(item_id)
-            print(item)
-            if item:
-                return item
-            raise NotFoundError(self.Schema.__name__, self._path_field.alias, item_id)
+    def _init_delete_one_endpoint(self, deps: bool|list[params.Depends]):
+        @self.delete(self._item_path, dependencies=self._init_deps(deps))
+        async def delete_one(item_id: int | str = self._path_field): # type: ignore
+            _ = await self._crud.delete(item_id)

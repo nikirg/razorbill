@@ -14,8 +14,9 @@ class BaseConnector(ABC):
     def pk_name(self) -> str:
         pass
 
+    @property
     @abstractmethod
-    def type_pk(self) -> Type[Any]:
+    def type_pk(self) -> Type[str|int]:
         pass
 
     @abstractmethod
@@ -24,8 +25,12 @@ class BaseConnector(ABC):
 
     @abstractmethod
     async def get_many(
-            self, skip: int, limit: int, filters: dict[str, Any] | None = None, populate: bool = False,
-            sorting: dict[str, bool] | None = None
+        self, *,
+        skip: int, 
+        limit: int,
+        populate: bool = False, 
+        filters: dict[str, Any]|None = None,
+        sorting: tuple[str, bool]|None = None
     ) -> list[dict[str, Any]]:
         pass
 
@@ -38,8 +43,7 @@ class BaseConnector(ABC):
         pass
 
     @abstractmethod
-    async def update_one(
-            self, obj_id: str | int, obj: dict[str, Any]) -> dict[str, Any]:
+    async def update_one(self, obj_id: str | int, obj: dict[str, Any]) -> dict[str, Any]:
         pass
 
     @abstractmethod

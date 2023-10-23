@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "razorbill"
-version = "0.1.22"
+version = "0.2.0"
 description = "Razorbill is a framework for quickly creating API applications using only the description of the data model."
 authors = ["Nikita Irgashev <nik.irg@yandex.ru>", "Vladislav Vavilov <vladvav94@gmail.com>"]
 readme = "README.md"
@@ -20,6 +20,7 @@ uvicorn = "^0.23.2"
 alembic = "^1.12.0"
 beanie = "^1.21.0"
 motor = "^3.3.1"
+aiosqlite = "^0.19.0"
 
 
 [build-system]
