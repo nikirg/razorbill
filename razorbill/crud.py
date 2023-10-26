@@ -98,9 +98,6 @@ class CRUD:
         filters: dict[str, Any]|None = None,
         sorting: tuple[str, bool]|None = None
     ) -> list[dict[str, Any]]:
-        
-        if filters is None: filters = {}
-        if sorting is None: sorting = {}
             
         if self._before_get_many_func is not None:
             items = await self._before_get_many_func(skip, limit, filters, sorting, populate)

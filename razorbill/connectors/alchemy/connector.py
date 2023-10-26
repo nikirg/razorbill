@@ -110,7 +110,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         
 
     async def get_one(self, obj_id: int, populate: list[str]|None = None) -> dict[str, Any]|None:
-        filters = {self._pk_name: obj_id}
+        filters = {self._pk_name: int(obj_id)}
         
         statement = build_select_statement(
             self.model, 
@@ -128,22 +128,35 @@ class AsyncSQLAlchemyConnector(BaseConnector):
 
     async def update_one(self, obj_id: int, obj: dict[str, Any]) -> dict[str, Any]|None:
         pk_column = getattr(self.model, self._pk_name)
-        
+        # TODO сделать через один запрос и проверить что update session работает и variable_values нормально сохраняется
         statement = (
             update(self.model)
-            .returning(*self.model.__table__.columns)
             .values(obj)
-            .where(pk_column == int(obj_id))
-            .execution_options(synchronize_session="fetch")   
+            .where(self.model.id == int(obj_id))
+            .execution_options(synchronize_session="fetch")
         )
-        
         try:
             async with self.session_maker.begin() as session:
-                result = await session.execute(statement)
-                result = result.one_or_none()
-                if result is not None:
-                    return dict(zip(self._column_names, result))
+                await session.execute(statement)
                 await session.commit()
+                updated_obj = await self.get_one(obj_id)
+
+            return updated_obj if updated_obj else None
+        # statement = (
+        #     update(self.model)
+        #     .returning(*self.model.__table__.columns)
+        #     .values(obj)
+        #     .where(pk_column == int(obj_id))
+        #     .execution_options(synchronize_session="fetch")
+        # )
+        #
+        # try:
+        #     async with self.session_maker.begin() as session:
+        #         result = await session.execute(statement)
+        #         result = result.one_or_none()
+        #         if result is not None:
+        #             return dict(zip(self._column_names, result))
+        #         await session.commit()
 
         except sqlalchemy.exc.IntegrityError as error:
             raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
