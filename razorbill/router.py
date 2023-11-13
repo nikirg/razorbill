@@ -45,6 +45,7 @@ class Router(APIRouter):
             schema: Type[BaseModel] | None = None,
             create_schema: Type[BaseModel] | None = None,
             update_schema: Type[BaseModel] | None = None,
+            overwrite_schema: bool = False,
             overwrite_create_schema: bool = False,
             overwrite_update_schema: bool = False,
             exclude_from_create_schema: list[str] | None = None,
@@ -65,6 +66,7 @@ class Router(APIRouter):
 
         self._build_parent()
 
+        self._overwrite_schema = overwrite_schema
         self._overwrite_create_schema = overwrite_create_schema
         self._overwrite_update_schema = overwrite_update_schema
         self._exclude_from_create_schema = [] if exclude_from_create_schema is None else exclude_from_create_schema
@@ -174,14 +176,24 @@ class Router(APIRouter):
     def _build_schemes(self):
         fields_to_exclude = []
         fields_to_exclude.append(str(self._parent_item_tag))
+        
+        if self._crud.connector is not None:
+            base_schema = self._crud.connector.schema
+            primary_key = self._crud.connector.pk_name
+            fields_to_exclude.append(str(primary_key))
 
         if self._Schema is None:
             if self._crud.connector is None:
                 raise UndefinedSchemaException
 
-            self._Schema = self._crud.connector.schema
-            primary_key = self._crud.connector.pk_name
-            fields_to_exclude.append(str(primary_key))
+            self._Schema = base_schema
+            
+        elif not self._overwrite_schema:
+            self._Schema = rebuild_schema(
+                base_schema,  # type: ignore
+                base_schema=self._Schema, # type: ignore
+                fields_to_exclude=fields_to_exclude
+            )
 
         if self._CreateSchema is None:
             self._CreateSchema = rebuild_schema(
