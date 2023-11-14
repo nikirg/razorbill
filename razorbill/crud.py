@@ -155,9 +155,9 @@ class CRUD:
         if self._before_delete_func is not None:
             await self._before_delete_func(obj_id)
             
-        record = await self._connector.delete_one(obj_id=obj_id) # type: ignore
+        await self._connector.delete_one(obj_id=obj_id) # type: ignore
         
         if self._after_delete_func is not None:
-            await self._after_delete_func(record)
+            await self._after_delete_func(obj_id)
             
         return record
