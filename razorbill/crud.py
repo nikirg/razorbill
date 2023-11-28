@@ -19,6 +19,11 @@ class CRUD:
         self._after_get_one_func = None
         self._after_get_many_func = None
 
+        self._after_create_func_before_obj = False
+        self._after_create_func_parent = False
+        self._after_get_many_func_parent = False
+        self._after_update_func_before_obj = False
+
     @property
     def connector(self) -> Type[BaseConnector] | None:
         return self._connector
@@ -46,14 +51,14 @@ class CRUD:
     def after_create(self, func: Optional[Callable] = None, *, parent: bool = False, before_obj: bool = False):
         if func is not None:
             self._after_create_func = func
-            self._after_create_func.parent = parent
+            self._after_create_func_parent = parent
             self._after_create_func.before_obj = before_obj
             return func
 
         def decorator(f: Callable) -> Callable:
             self._after_create_func = f
-            self._after_create_func.parent = parent
-            self._after_create_func.before_obj = before_obj
+            self._after_create_func_parent = parent
+            self._after_create_func_before_obj = before_obj
             return f
 
         return decorator
@@ -61,12 +66,12 @@ class CRUD:
     def after_update(self, func: Optional[Callable] = None, *, before_obj: bool = False):
         if func is not None:
             self._after_update_func = func
-            self._after_update_func.before_obj = before_obj
+            self._after_update_func_before_obj = before_obj
             return func
 
         def decorator(f: Callable) -> Callable:
             self._after_update_func = f
-            self._after_update_func.before_obj = before_obj
+            self._after_update_func_before_obj = before_obj
             return f
 
         return decorator
@@ -82,12 +87,12 @@ class CRUD:
     def after_get_many(self, func: Optional[Callable] = None, *, parent: bool = False):
         if func is not None:
             self._after_get_many_func = func
-            self._after_get_many_func.parent = parent
+            self._after_get_many_func_parent = parent
             return func
 
         def decorator(f: Callable) -> Callable:
             self._after_get_many_func = f
-            self._after_get_many_func.parent = parent
+            self._after_get_many_func_parent = parent
             return f
 
         return decorator
@@ -127,11 +132,11 @@ class CRUD:
         )  # type: ignore
 
         if self._after_get_many_func is not None:
-            args = [record]
-            if getattr(self._after_get_many_func, 'parent', False):
-                args.append(parent_obj)
 
-            modified_record = await self._after_get_many_func(*args)
+            if self._after_get_many_func_parent:
+                modified_record = await self._after_get_many_func(record, parent_obj)
+            else:
+                modified_record = await self._after_get_many_func(record)
 
             if modified_record is not None:
                 record = modified_record
@@ -149,10 +154,10 @@ class CRUD:
         record = await self._connector.create_one(obj=_obj)  # type: ignore
         if self._after_create_func is not None:
             args = [record]
-            if getattr(self._after_create_func, 'parent', False):
+            if self._after_create_func_parent:
                 args.append(parent_obj)
 
-            if getattr(self._after_create_func, 'before_obj', False):
+            if self._after_create_func_before_obj:
                 args.append(obj)
 
             modified_record = await self._after_create_func(*args)
@@ -173,7 +178,7 @@ class CRUD:
         record = await self._connector.update_one(obj_id=obj_id, obj=_obj)  # type: ignore
 
         if self._after_update_func is not None:
-            if getattr(self._after_update_func, 'before_obj', False):
+            if self._after_update_func_before_obj:
                 modified_record = await self._after_update_func(record, obj)
             else:
                 modified_record = await self._after_update_func(record)
