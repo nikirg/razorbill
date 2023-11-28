@@ -52,7 +52,7 @@ class CRUD:
         if func is not None:
             self._after_create_func = func
             self._after_create_func_parent = parent
-            self._after_create_func.before_obj = before_obj
+            self._after_create_func_before_obj = before_obj
             return func
 
         def decorator(f: Callable) -> Callable:
