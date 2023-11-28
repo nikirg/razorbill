@@ -20,6 +20,15 @@ _dummy_dependency = Depends(lambda: None)
 
 
 # class _DummyFilter(BaseModel): pass
+# TODO сделать функционал для RESPONSE модел для create read update,
+#  response_create_schema(None), overwrite_response_create_schema(False)
+#  responce_update_schema, overwrite_response_update_schema
+#  response_get_one_schema
+# responce_get_many_schema
+# reponse_delete_schema
+
+
+# TODO написать коннектор для REDIS без родительских штук - асинхронный
 
 class Router(APIRouter):
     def __init__(
@@ -244,7 +253,7 @@ class Router(APIRouter):
                   dependencies=self._init_deps(deps, parent=True))  # type: ignore
         async def get_many(
                 pagination: tuple[int, int] = self._pagination_dependency,  # type: ignore
-                parent: dict[str, int] = self._parent_id_dependency,  # type: ignore
+                parent_obj: dict[str, Any] = self._parent_exists_dependency,  # type: ignore
                 # populate: list[str]|None = None,
                 # filters: self._FilterSchema = Depends(self._FilterSchema), # type: ignore
                 sorting: tuple[str, bool] | None = self._sort_field_dependency,  # type: ignore
@@ -253,10 +262,13 @@ class Router(APIRouter):
             # if parent is not None:
             #     payload |= parent
             skip, limit = pagination
-
+            parent = {}
+            if parent_obj is not None:
+                parent = {self._parent_item_tag: self._crud.connector.type_pk(parent_obj['id'])}
             items = await self._crud.get_many(
                 skip=skip, limit=limit,
-                filters=parent, sorting=sorting
+                filters=parent, sorting=sorting,
+                parent_obj=parent_obj
             )
             return items
 
@@ -266,12 +278,13 @@ class Router(APIRouter):
         @self.post(path, response_model=self._Schema, dependencies=self._init_deps(deps, parent=True))
         async def create_one(
                 body: self._CreateSchema,
-                parent: dict[str, int] = self._parent_id_dependency,  # type: ignore
+                parent_obj: dict[str, Any] = self._parent_exists_dependency,  # type: ignore
         ):
             payload = body.dict()
-            if parent is not None:
+            if parent_obj is not None:
+                parent = {self._parent_item_tag: self._crud.connector.type_pk(parent_obj['id'])}
                 payload = body.dict() | parent
-            item = await self._crud.create(payload)
+            item = await self._crud.create(payload, parent_obj)
             return item
 
     def _init_get_one_endpoint(self, deps: bool | list[params.Depends]):

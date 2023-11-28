@@ -162,9 +162,15 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
 
 
-    async def delete_one(self, obj_id: int) -> None:
+    async def delete_one(self, obj_id: int) -> dict[str, Any]|None:
         pk_column = getattr(self.model, self._pk_name)
-        statement = delete(self.model).where(pk_column == int(obj_id)) 
-        
+
+        select_statement = select(self.model).where(pk_column == int(obj_id))
         async with self.session_maker.begin() as session:
-            _ = await session.execute(statement)
+            result = await session.execute(select_statement)
+            obj_to_delete = result.scalar_one_or_none()
+
+        delete_statement = delete(self.model).where(pk_column == int(obj_id))
+        async with self.session_maker.begin() as session:
+            _ = await session.execute(delete_statement)
+        return obj_to_delete

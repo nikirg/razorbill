@@ -14,7 +14,7 @@ def build_exists_dependency(crud: CRUD, item_tag: str) -> params.Depends:
         item = await crud.get_one(item_id)
         if item is None:
             raise NotFoundError(crud.connector.schema.__name__, item_tag, item_id)
-
+        return item
     return Depends(dep)
 
 

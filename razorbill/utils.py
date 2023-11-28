@@ -5,6 +5,9 @@ from pydantic import BaseModel
 
 
 def get_slug_schema_name(schema_name: str) -> str:
+    if not re.search("[A-Z]", schema_name):
+        return schema_name
+
     chunks = re.findall("[A-Z][^A-Z]*", schema_name)
     return "_".join(chunks).lower()
 
