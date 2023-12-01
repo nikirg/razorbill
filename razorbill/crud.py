@@ -143,7 +143,7 @@ class CRUD:
 
         return record
 
-    async def create(self, obj: Type[dict[str, Any]], parent_obj: Type[dict[str, Any]]) -> dict[str, Any]:
+    async def create(self, obj: Type[dict[str, Any]], parent_obj: Type[dict[str, Any]] | None = None) -> dict[str, Any]:
         _obj = None
 
         if self._before_create_func is not None:

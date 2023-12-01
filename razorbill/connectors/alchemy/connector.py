@@ -107,7 +107,6 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             result = await session.execute(statement)
             items = result.scalars().all()
             return [object_to_dict(item) for item in items]
-        
 
     async def get_one(self, obj_id: int, populate: list[str]|None = None) -> dict[str, Any]|None:
         filters = {self._pk_name: int(obj_id)}
@@ -122,9 +121,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         async with self.session_maker.begin() as session:
             query = await session.execute(statement)
             item = query.scalars().one_or_none()
-            return object_to_dict(item)
-
-
+            return object_to_dict(item) if item else None
 
     async def update_one(self, obj_id: int, obj: dict[str, Any]) -> dict[str, Any]|None:
         pk_column = getattr(self.model, self._pk_name)
@@ -160,7 +157,6 @@ class AsyncSQLAlchemyConnector(BaseConnector):
 
         except sqlalchemy.exc.IntegrityError as error:
             raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
-
 
     async def delete_one(self, obj_id: int) -> dict[str, Any]|None:
         pk_column = getattr(self.model, self._pk_name)
