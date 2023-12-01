@@ -169,4 +169,4 @@ class AsyncSQLAlchemyConnector(BaseConnector):
         delete_statement = delete(self.model).where(pk_column == int(obj_id))
         async with self.session_maker.begin() as session:
             _ = await session.execute(delete_statement)
-        return obj_to_delete
+        return object_to_dict(obj_to_delete)
