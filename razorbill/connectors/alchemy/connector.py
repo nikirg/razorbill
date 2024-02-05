@@ -123,7 +123,7 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             item = query.scalars().one_or_none()
             return object_to_dict(item) if item else None
 
-    async def update_one(self, obj_id: int, obj: dict[str, Any]) -> dict[str, Any]|None:
+    async def update_one(self, obj_id: int, obj: dict[str, Any]) -> dict[str, Any] | None:
         pk_column = getattr(self.model, self._pk_name)
         # TODO сделать через один запрос и проверить что update session работает и variable_values нормально сохраняется
         statement = (
@@ -139,24 +139,32 @@ class AsyncSQLAlchemyConnector(BaseConnector):
                 updated_obj = await self.get_one(obj_id)
 
             return updated_obj if updated_obj else None
-        # statement = (
-        #     update(self.model)
-        #     .returning(*self.model.__table__.columns)
-        #     .values(obj)
-        #     .where(pk_column == int(obj_id))
-        #     .execution_options(synchronize_session="fetch")
-        # )
-        #
-        # try:
-        #     async with self.session_maker.begin() as session:
-        #         result = await session.execute(statement)
-        #         result = result.one_or_none()
-        #         if result is not None:
-        #             return dict(zip(self._column_names, result))
-        #         await session.commit()
 
         except sqlalchemy.exc.IntegrityError as error:
             raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
+
+    # async def update_one(self, obj_id: int, obj: dict[str, Any]) -> dict[str, Any]|None:
+    #     pk_column = getattr(self.model, self._pk_name)
+    #     # TODO этот запрос надо проверить на работоспособность
+    #     statement = (
+    #         update(self.model)
+    #         .returning(self.model)
+    #         .where(self.model.id == int(obj_id))
+    #         .values(obj)
+    #         .execution_options(synchronize_session="fetch")
+    #     )
+    #
+    #     try:
+    #         async with self.session_maker.begin() as session:
+    #             result = await session.execute(statement)
+    #             await session.commit()
+    #             updated_obj = result.first()
+    #         return object_to_dict(updated_obj[0]) if updated_obj else None
+    #     except sqlalchemy.exc.IntegrityError as error:
+    #         raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
+    #
+    #     except sqlalchemy.exc.IntegrityError as error:
+    #         raise AsyncSQLAlchemyConnectorException(f"Some of relations objects does not exists: {error}")
 
     async def delete_one(self, obj_id: int) -> dict[str, Any]|None:
         pk_column = getattr(self.model, self._pk_name)
@@ -166,7 +174,8 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             result = await session.execute(select_statement)
             obj_to_delete = result.scalar_one_or_none()
 
-        delete_statement = delete(self.model).where(pk_column == int(obj_id))
-        async with self.session_maker.begin() as session:
-            _ = await session.execute(delete_statement)
-        return object_to_dict(obj_to_delete)
+        if obj_to_delete:
+            delete_statement = delete(self.model).where(pk_column == int(obj_id))
+            async with self.session_maker.begin() as session:
+                _ = await session.execute(delete_statement)
+            return object_to_dict(obj_to_delete)
