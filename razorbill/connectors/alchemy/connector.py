@@ -109,7 +109,10 @@ class AsyncSQLAlchemyConnector(BaseConnector):
             return [object_to_dict(item) for item in items]
 
     async def get_one(self, obj_id: int, populate: list[str]|None = None) -> dict[str, Any]|None:
-        filters = {self._pk_name: int(obj_id)}
+        try:
+            filters = {self._pk_name: int(obj_id)}
+        except ValueError:
+            return None
         
         statement = build_select_statement(
             self.model, 
@@ -125,11 +128,16 @@ class AsyncSQLAlchemyConnector(BaseConnector):
 
     async def update_one(self, obj_id: int, obj: dict[str, Any]) -> dict[str, Any] | None:
         pk_column = getattr(self.model, self._pk_name)
+        try:
+            obj_id = int(obj_id)
+        except ValueError:
+            return None
+
         # TODO сделать через один запрос и проверить что update session работает и variable_values нормально сохраняется
         statement = (
             update(self.model)
             .values(obj)
-            .where(self.model.id == int(obj_id))
+            .where(self.model.id == obj_id)
             .execution_options(synchronize_session="fetch")
         )
         try:
