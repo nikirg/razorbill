@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "razorbill"
-version = "0.2.8"
+version = "0.2.9"
 description = "Razorbill is a framework for quickly creating API applications using only the description of the data model."
 authors = ["Nikita Irgashev <nik.irg@yandex.ru>", "Vladislav Vavilov <vladvav94@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = "^0.103.0"
+fastapi = "^0.110.1"
 sqlalchemy = "^2.0.17"
 pytest = "^7.4.0"
 pytest-asyncio = "^0.21.1"
